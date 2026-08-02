@@ -20,7 +20,7 @@ from bot.core.keyboards import (
     build_media_type_keyboard,
     build_quality_keyboard,
 )
-from bot.core.pending_downloads import PendingDownload, PendingDownloadsStore
+from bot.core.pending_downloads import PendingDownload, generate_url_id
 from bot.core.schemas import UserSchema
 from bot.core.utils import bold, can_remove_url_params, get_user_id
 
@@ -104,6 +104,7 @@ class TelegramCallback:
         # Process each URL - show format selection keyboard
         for url in urls:
             await self._show_format_selection(
+                client=client,
                 message=message,
                 url=url,
                 user=user,
@@ -111,8 +112,9 @@ class TelegramCallback:
                 skip_cache=skip_cache,
             )
 
-    async def _show_format_selection(
+    async def _show_format_selection(  # noqa: PLR0913
         self,
+        client: VideoBotClient,
         message: Message,
         url: str,
         user: UserSchema,
@@ -134,15 +136,13 @@ class TelegramCallback:
             parse_mode=ParseMode.HTML,
             reply_to_message_id=message.id,
             reply_markup=build_media_type_keyboard(
-                url_id=PendingDownloadsStore.generate_url_id(
-                    message.chat.id, message.id
-                ),
+                url_id=generate_url_id(message.chat.id, message.id),
                 language=language,
             ),
         )
 
         # Store pending download
-        url_id = PendingDownloadsStore.generate_url_id(message.chat.id, message.id)
+        url_id = generate_url_id(message.chat.id, message.id)
         pending = PendingDownload(
             url=processed_url,
             original_url=url,
@@ -155,7 +155,7 @@ class TelegramCallback:
             user=user,
             skip_cache=skip_cache,
         )
-        PendingDownloadsStore.add(url_id, pending)
+        await client.pending_downloads.add(url_id, pending)
 
     async def on_callback_query(
         self, client: VideoBotClient, callback_query: CallbackQuery
@@ -174,7 +174,7 @@ class TelegramCallback:
         elif data.startswith(DOWNLOAD_PREFIX):
             await self._handle_download_selection(client, callback_query, language)
         elif data.startswith(CANCEL_PREFIX):
-            await self._handle_cancel(callback_query, language)
+            await self._handle_cancel(client, callback_query, language)
 
     async def _handle_media_type_selection(
         self, client: VideoBotClient, callback_query: CallbackQuery, language: str
@@ -191,7 +191,7 @@ class TelegramCallback:
 
         # Handle back button
         if media_type_str == 'back':
-            pending = PendingDownloadsStore.get(url_id)
+            pending = await client.pending_downloads.get(url_id)
             if not pending:
                 await callback_query.answer(t('format.session_expired', language))
                 await callback_query.message.delete()
@@ -208,7 +208,7 @@ class TelegramCallback:
             await callback_query.answer()
             return
 
-        pending = PendingDownloadsStore.get(url_id)
+        pending = await client.pending_downloads.get(url_id)
         if not pending:
             await callback_query.answer(t('format.session_expired', language))
             await callback_query.message.delete()
@@ -282,7 +282,7 @@ class TelegramCallback:
         language: str,
     ) -> None:
         """Start the download process."""
-        pending = PendingDownloadsStore.remove(url_id)
+        pending = await client.pending_downloads.remove(url_id)
         if not pending:
             await callback_query.answer(t('format.session_expired', language))
             await callback_query.message.delete()
@@ -397,11 +397,11 @@ class TelegramCallback:
         return True
 
     async def _handle_cancel(
-        self, callback_query: CallbackQuery, language: str
+        self, client: VideoBotClient, callback_query: CallbackQuery, language: str
     ) -> None:
         """Handle cancel button."""
         url_id = callback_query.data.removeprefix(CANCEL_PREFIX)
-        PendingDownloadsStore.remove(url_id)
+        await client.pending_downloads.remove(url_id)
 
         await callback_query.message.edit_text(
             text=t('format.cancelled', language),

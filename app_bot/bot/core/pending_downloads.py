@@ -1,32 +1,39 @@
 """Links waiting for someone to choose a format for them.
 
-A pasted link becomes a keyboard, and the choice behind it has to be kept
-somewhere until a button is pressed. Most are pressed within seconds; the ones
-that are not would otherwise stay here for the life of the process, which on a
-bot that runs for months is a slow leak.
+A pasted link becomes a keyboard, and the choice behind it has to be kept until
+a button is pressed. That used to be a dict in the bot process, which meant two
+things: it grew forever, and every restart orphaned the keyboards already on
+screen — pressing one answered "this request has expired" when nothing had.
 
-Entries therefore expire. This does **not** make them survive a restart — the
-store lives in the process, so `/restartbot` still orphans every keyboard on
-screen. Pressing one of those answers "this request has expired", which is
-exactly what happened.
+Both are now handled. Entries live outside the process and expire after two
+days, on access and by a periodic sweep, because eviction on access alone never
+reaches an entry nobody comes back to.
+
+The user is referenced by id rather than carried along: their settings can
+change while a keyboard waits, and the configuration is the authority on what
+they are now. A user removed from it in the meantime makes the entry unusable,
+which is the right answer.
 """
 
+import datetime
 import logging
-import time
-from dataclasses import dataclass, field
-from typing import ClassVar, Final
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Final
 
 from yt_shared.enums import TelegramChatType
 
 from bot.core.schemas import UserSchema
 
+if TYPE_CHECKING:
+    from bot.core.pending_download_store import PendingDownloadStore
+
 # A keyboard nobody has touched in two days is not going to be touched.
-_TTL_SECONDS: Final[float] = 48 * 60 * 60
+TTL: Final[datetime.timedelta] = datetime.timedelta(hours=48)
 
 
 @dataclass
 class PendingDownload:
-    """Pending download request data."""
+    """A link and everything needed to act on it once a format is chosen."""
 
     url: str
     original_url: str
@@ -39,82 +46,67 @@ class PendingDownload:
     user: UserSchema
     # Set by /nocache, for when the stored copy is wrong or stale.
     skip_cache: bool = False
-    # Monotonic on purpose: a clock correction must not make an entry immortal
-    # or expire every one of them at once.
-    added_at: float = field(default_factory=time.monotonic)
+    # Filled in when a choice is read back; unset on a freshly made one.
+    added_at: datetime.datetime | None = None
 
-    def is_expired(self, ttl: float, now: float) -> bool:
-        return now - self.added_at >= ttl
+    def is_expired(self, cutoff: datetime.datetime) -> bool:
+        """Whether this is too old to honour. An unknown age counts as fresh."""
+        return self.added_at is not None and self.added_at < cutoff
 
 
-class PendingDownloadsStore:
-    """In-memory store for pending download requests.
+def generate_url_id(chat_id: int, message_id: int) -> str:
+    """Name a pending choice after the message that started it."""
+    return f'{chat_id}_{message_id}'
 
-    Uses a simple dict with url_id as key. URL ID is generated from
-    message_id and chat_id to ensure uniqueness.
-    """
 
-    TTL_SECONDS: ClassVar[float] = _TTL_SECONDS
+class PendingDownloads:
+    """Reads and writes pending choices, dropping the ones that are too old."""
 
-    _store: ClassVar[dict[str, PendingDownload]] = {}
-    _log = logging.getLogger('PendingDownloadsStore')
+    def __init__(self, store: 'PendingDownloadStore') -> None:
+        self._log = logging.getLogger(self.__class__.__name__)
+        self._store = store
 
-    @classmethod
-    def generate_url_id(cls, chat_id: int, message_id: int) -> str:
-        """Generate unique URL ID from chat and message IDs."""
-        return f'{chat_id}_{message_id}'
+    @staticmethod
+    def _cutoff() -> datetime.datetime:
+        return datetime.datetime.now(datetime.UTC).replace(tzinfo=None) - TTL
 
-    @classmethod
-    def add(cls, url_id: str, pending: PendingDownload) -> None:
-        """Add pending download to store."""
-        cls._log.debug('Adding pending download: %s', url_id)
-        cls._store[url_id] = pending
+    async def add(self, url_id: str, pending: PendingDownload) -> None:
+        self._log.debug('Adding pending download: %s', url_id)
+        await self._store.save(url_id, pending)
 
-    @classmethod
-    def get(cls, url_id: str) -> PendingDownload | None:
-        """Get pending download by URL ID, unless it has expired."""
-        return cls._take(url_id, keep=True)
+    async def get(self, url_id: str) -> PendingDownload | None:
+        """Look a choice up, unless it is too old to honour."""
+        return await self._take(url_id, keep=True)
 
-    @classmethod
-    def remove(cls, url_id: str) -> PendingDownload | None:
-        """Remove and return pending download by URL ID."""
-        cls._log.debug('Removing pending download: %s', url_id)
-        return cls._take(url_id, keep=False)
+    async def remove(self, url_id: str) -> PendingDownload | None:
+        """Take a choice, so that acting on it twice is not possible."""
+        self._log.debug('Removing pending download: %s', url_id)
+        return await self._take(url_id, keep=False)
 
-    @classmethod
-    def _take(cls, url_id: str, *, keep: bool) -> PendingDownload | None:
-        """Look an entry up, dropping it if it is too old to honour."""
-        pending = cls._store.get(url_id)
-        if pending is None:
+    async def _take(self, url_id: str, *, keep: bool) -> PendingDownload | None:
+        try:
+            found = await self._store.load(url_id)
+        except Exception:
+            # A store that cannot be read looks like an expired request, which
+            # is a great deal better than a traceback in front of the user.
+            self._log.exception('Could not read the pending download %s', url_id)
             return None
-        if pending.is_expired(cls.TTL_SECONDS, time.monotonic()):
+
+        if found is None:
+            return None
+        if found.is_expired(self._cutoff()):
             # Evicting on access alone would never reach an entry nobody comes
-            # back to, which is why the sweep below exists as well.
-            cls._log.debug('Pending download %s has expired', url_id)
-            cls._store.pop(url_id, None)
+            # back to, which is why the sweep exists as well.
+            self._log.debug('Pending download %s has expired', url_id)
+            await self._store.delete(url_id)
             return None
         if not keep:
-            cls._store.pop(url_id, None)
-        return pending
+            await self._store.delete(url_id)
+        return found
 
-    @classmethod
-    def sweep(cls) -> int:
-        """Drop every entry past its time, and say how many that was."""
-        now = time.monotonic()
-        expired = [
-            url_id
-            for url_id, pending in cls._store.items()
-            if pending.is_expired(cls.TTL_SECONDS, now)
-        ]
-        for url_id in expired:
-            del cls._store[url_id]
-        return len(expired)
+    async def sweep(self) -> int:
+        """Drop every choice past its time, and say how many that was."""
+        return await self._store.delete_older_than(self._cutoff())
 
-    @classmethod
-    def size(cls) -> int:
-        return len(cls._store)
-
-    @classmethod
-    def clear(cls) -> None:
-        """Clear all pending downloads."""
-        cls._store.clear()
+    async def size(self) -> int:
+        return await self._store.count()

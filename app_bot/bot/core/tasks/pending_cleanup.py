@@ -5,14 +5,20 @@ never reached that way, and those are precisely the ones that accumulate.
 """
 
 import asyncio
+from typing import TYPE_CHECKING
 
 from yt_shared.utils.tasks.abstract import AbstractTask
 
-from bot.core.pending_downloads import PendingDownloadsStore
+if TYPE_CHECKING:
+    from bot.bot.client import VideoBotClient
 
 
 class PendingCleanupTask(AbstractTask):
     _SLEEP_TIME: int = 60 * 60
+
+    def __init__(self, bot: 'VideoBotClient') -> None:
+        super().__init__()
+        self._bot = bot
 
     async def run(self) -> None:
         await self._run()
@@ -20,12 +26,16 @@ class PendingCleanupTask(AbstractTask):
     async def _run(self) -> None:
         while True:
             await asyncio.sleep(self._SLEEP_TIME)
-            evicted = PendingDownloadsStore.sweep()
+            try:
+                evicted = await self._bot.pending_downloads.sweep()
+            except Exception:
+                self._log.exception('Could not sweep the pending downloads')
+                continue
             if evicted:
                 # Only when something happened: an hourly "nothing to do" line
                 # is how a log stops being read.
                 self._log.info(
                     'Dropped %d expired pending download(s), %d left',
                     evicted,
-                    PendingDownloadsStore.size(),
+                    await self._bot.pending_downloads.size(),
                 )

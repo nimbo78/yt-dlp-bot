@@ -147,7 +147,7 @@ class BotLauncher:
 
         task_name = PendingCleanupTask.__class__.__name__
         create_task(
-            PendingCleanupTask().run(),
+            PendingCleanupTask(bot=self._bot).run(),
             task_name=task_name,
             logger=self._log,
             exception_message='Task "%s" raised an exception',

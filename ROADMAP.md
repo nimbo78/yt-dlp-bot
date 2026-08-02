@@ -148,6 +148,31 @@ require paths that exist. The trade is that a cache hit records no task row, so
 it does not appear in `/v1/tasks` — nothing was downloaded, but the history is
 not complete either.
 
+### Pending choices across restarts
+
+The store moved out of the bot process, so `/restartbot` and `./redeploy.sh` no
+longer orphan every keyboard on screen.
+
+Postgres, not Redis. Redis is already running for the API and its TTL would have
+come free, but the bot has no Redis client, and adding one relocks `app_bot` —
+which breaks the image build until the lock is regenerated, and `uv` is not
+available here to regenerate it. Postgres costs a migration and nothing else,
+and `pgdata` is the volume that already survives `docker compose down`. Worth
+noting that `yt_redis` has no volume at all, so it would not have survived one
+either.
+
+The user is stored by id and resolved from the configuration on read, so a
+keyboard pressed after their settings changed uses the new ones — and one
+pressed after they were removed from the configuration is simply gone.
+
+`added_at` becomes a wall clock, where the in-memory version used a monotonic
+reading: a monotonic value means nothing to the process that reads it back. The
+trade is that a large clock correction can now age or rejuvenate an entry.
+
+The expiry decision sits in `PendingDownloads` rather than in the store — the
+first cut had the store compare against the cutoff, which put the only
+interesting logic somewhere it could not be tested without a database.
+
 ---
 
 ## Queued
@@ -201,11 +226,6 @@ a playlist link silently yields only the first video, with no warning. The
 minimum honest step is to detect a playlist and say so. Full support needs a
 choice or a filter — "download all 200" is not a feature on this hardware — plus
 progress across several tasks, limits and cancellation.
-
-### Pending choices across restarts
-
-The other half of item 4. Needs a store that outlives the process; Redis is
-already running for the API.
 
 ---
 

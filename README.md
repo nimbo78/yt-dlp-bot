@@ -111,6 +111,9 @@ Anyone allowed in the config can paste links. Admins get the rest:
 | `/reloadconfig` | Re-read `config.yml` from disk |
 | `/restartbot` | Restart the bot; Docker brings it back |
 
+A format keyboard keeps working across a restart: the pending choice lives in
+the database, not in the bot process, and expires after 48 hours.
+
 Anyone allowed may also use `/nocache <url>` to download a link again, ignoring
 the copy Telegram already holds.
 

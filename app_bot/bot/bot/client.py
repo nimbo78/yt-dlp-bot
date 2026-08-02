@@ -11,6 +11,8 @@ from pyrogram.errors import RPCError
 from bot.core.file_cache import CachedDelivery
 from bot.core.file_cache_store import PostgresFileCacheStore
 from bot.core.i18n import t
+from bot.core.pending_download_store import PostgresPendingDownloadStore
+from bot.core.pending_downloads import PendingDownloads
 from bot.core.schemas import ConfigSchema, UserSchema
 from bot.core.startup_message_store import PostgresStartupMessageStore
 from bot.core.startup_notice import StartupNotice
@@ -34,6 +36,9 @@ class VideoBotClient(Client):
         self.admin_users: dict[int, UserSchema] = {}
         self.startup_notice = StartupNotice(self, PostgresStartupMessageStore())
         self.cached_delivery = CachedDelivery(self, PostgresFileCacheStore())
+        self.pending_downloads = PendingDownloads(
+            PostgresPendingDownloadStore(self)
+        )
 
         for user in self.conf.telegram.allowed_users:
             self.allowed_users[user.id] = user
