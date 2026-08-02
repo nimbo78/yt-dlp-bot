@@ -1,0 +1,11 @@
+%% Which RabbitMQ plugins to enable, replacing the image's own list.
+%%
+%% The `-management` image enables rabbitmq_prometheus alongside the management
+%% UI. Nothing in this stack scrapes the metrics endpoint on 15692, and the
+%% plugin is not free: it registers its own listener and collectors. Dropping it
+%% is the one saving here that needs no tuning and no measurement.
+%%
+%% Dependencies come along automatically, so listing rabbitmq_management alone
+%% still starts rabbitmq_management_agent and rabbitmq_web_dispatch — the UI on
+%% 15672 keeps working. Erlang term syntax: brackets, commas, trailing period.
+[rabbitmq_management].

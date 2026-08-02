@@ -293,6 +293,24 @@ suite deliberately does not cross for a one-line control-flow fix.
 
 ## Backlog
 
+### RabbitMQ 3.12 is out of support
+
+It says so itself on every boot: *"This release series has reached end of life
+and is no longer supported."* Nothing is broken, and moving majors on a machine
+this small is worth doing deliberately rather than as a side effect of some
+other change.
+
+### Pin what floats
+
+Three separate failures in one day had the same cause: a dependency that was
+free to move. `ruff>=0.9` reddened CI on a day nothing changed; `sqlalchemy>=2.0.37`
+resolved to 2.0.51 and crash-looped all three services; `redis:alpine` moved to
+Redis 8 and started loading four modules nobody uses. Each was fixed where it
+bit. What is still open is the general case — chiefly the unlocked
+`uv pip install -e ./yt_shared` at the end of every Dockerfile, which is why the
+SQLAlchemy in the images is not the one `yt_shared/uv.lock` names. Regenerating
+those locks needs `uv`, which is why it has not happened yet.
+
 ### JWT for the API
 
 When there is more than one client with different rights. The bearer token

@@ -360,6 +360,37 @@ resident memory for no throughput anyone here needs. A container that exits with
 **137** was killed by the kernel, not by the application, and on a small host
 this is the usual reason.
 
+**The supporting services are trimmed for this too**, and both are worth knowing
+about before you change them:
+
+- **Redis** is pinned to `redis:7-alpine`. The floating `redis:alpine` tag moved
+  to Redis 8, which bundles RedisBloom, RediSearch, RedisTimeSeries and ReJSON
+  into the base image and loads all four at startup. Redis is used here in one
+  place only — the `fastapi-cache` backend in `app_api/api/app.py` — which needs
+  none of them. It also runs with `--maxmemory 64mb --maxmemory-policy
+  allkeys-lru`: there is no volume behind it, so nothing there is worth keeping
+  and the only real risk was unbounded growth.
+- **RabbitMQ** loads only the management plugin, via `rabbitmq/enabled_plugins`.
+  The `-management` image also enables `rabbitmq_prometheus`, and nothing in
+  this stack scrapes it. The UI on 15672 is unaffected.
+
+RabbitMQ also reports its **memory high watermark** at startup — by default 40%
+of host RAM, which it announces in its own log. That is the point at which it
+blocks publishers, not a limit on what it uses, so lowering it protects the host
+under load rather than freeing anything now. Set it from a measurement
+(`docker stats yt_rabbitmq`) rather than a guess: too low and the bot cannot
+queue a download at all. In `docker-compose.override.yml`:
+
+```yml
+services:
+  yt_rabbitmq:
+    volumes:
+      - "./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro"
+      - "./rabbitmq/memory.conf:/etc/rabbitmq/conf.d/20-memory.conf:ro"
+```
+
+with `vm_memory_high_watermark.absolute = 256MiB` in that file.
+
 ## Cookies
 
 Some sites only serve content to an authenticated session. Export your cookies
