@@ -65,7 +65,9 @@ class YtdlpNewVersionNotifyTask(AbstractTask):
                 self._log.info('yt-dlp has new version: %s', context.latest.version)
                 if self._ytdlp_conf.notify_users_on_new_version:
                     await self._notify_outdated(context)
-                    return
+                # Return either way. Falling through with notifications turned
+                # off used to report the version as up to date, which it is not.
+                return
 
             if not self._startup_message_sent:
                 await self._notify_up_to_date(

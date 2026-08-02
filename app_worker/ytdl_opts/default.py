@@ -65,6 +65,12 @@ AUDIO_YTDL_OPTS: Final[_OptsType] = (
     '--write-thumbnail',
     '--convert-thumbnails',
     FINAL_THUMBNAIL_FORMAT,
+    # Artist, title and cover reach the Telegram player as send_audio arguments
+    # either way; these put them inside the file, so they survive being saved
+    # or forwarded anywhere else. --write-thumbnail above makes yt-dlp keep the
+    # separate cover file as well, which is the one the bot sends as a preview.
+    '--embed-metadata',
+    '--embed-thumbnail',
 )
 
 AUDIO_FORMAT_YTDL_OPTS: Final[_OptsType] = ('--format', 'bestaudio/best')

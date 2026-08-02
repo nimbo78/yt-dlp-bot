@@ -102,31 +102,31 @@ scheduled; pick from it whenever._
 
 ## Along the way
 
-Small enough to attach to whichever item is open.
+Small enough to attach to whichever item is open. Both of these went in with the
+last of the queued work.
 
-### SoundCloud, and audio tags generally
+### ~~SoundCloud, and audio tags~~ — done
 
-SoundCloud downloads work today, and the Telegram player shows artist and title
-correctly — but only because `app_bot/bot/core/tasks/upload.py` passes them to
-`send_audio` as `performer` and `title`. **The MP3 itself carries no tags.**
-`AUDIO_YTDL_OPTS` in `app_worker/ytdl_opts/default.py` has neither
-`--embed-metadata` nor `--embed-thumbnail`, so saving the file elsewhere loses
-the artist, the title and the cover.
+`--embed-metadata --embed-thumbnail` added to `AUDIO_YTDL_OPTS`. Artist, title
+and cover reached the Telegram player as `send_audio` arguments already; now
+they are inside the file too, so they survive being saved or forwarded
+elsewhere.
 
-A side effect: `_STEP_KEYS` in `app_worker/worker/core/progress.py` maps the
-`FFmpegMetadata` and `EmbedThumbnail` post-processors, but neither ever runs,
-which makes `postprocess.metadata` and `postprocess.embed_thumbnail` dead keys
-in all 15 locales.
+Checked before shipping, because it was the risk: with `--write-thumbnail`
+present yt-dlp constructs `EmbedThumbnailPP(already_have_thumbnail=True)`, so
+the separate cover file the bot sends as a preview is kept rather than consumed.
 
-Two flags fix the file, the dead keys, and the missing covers at once.
+This also revives `postprocess.metadata` and `postprocess.embed_thumbnail`,
+which were mapped in the worker but never fired, leaving two dead keys in all 15
+locales.
 
-### The false "up to date"
+### ~~The false "up to date"~~ — done
 
-`app_bot/bot/core/tasks/ytdlp.py:64-74` — the early `return` sits inside the
-inner `if`, so when a new version exists **and** `notify_users_on_new_version`
-is false, control falls through and the bot reports the version as up to date.
-It is not. Only reachable with notifications disabled, which is why it has gone
-unnoticed.
+The early `return` sat inside the inner `if`, so with a new version available
+and `notify_users_on_new_version` off, control fell through and the bot reported
+the version as current. Not covered by a test: reaching that method needs fakes
+for the database, the GitHub client and the bot, which is the boundary the test
+suite deliberately does not cross for a one-line control-flow fix.
 
 ---
 
