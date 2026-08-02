@@ -24,6 +24,13 @@ services:
   #   mem_limit: 256m
   #   memswap_limit: 256m
 
+  # The API is the smallest of the three. If it is being killed with exit code
+  # 137, check API_WORKERS in envs/api.local.env before raising this: each
+  # worker is a whole extra copy of the application.
+  # yt_api:
+  #   mem_limit: 256m
+  #   memswap_limit: 256m
+
   # Reach the API from outside the host. Set API_TOKEN in envs/api.local.env
   # first: without it the API accepts every request, and it can make the bot
   # send files into your chats.

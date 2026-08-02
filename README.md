@@ -353,6 +353,13 @@ Also lower `MAX_SIMULTANEOUS_DOWNLOADS`, and consider `DOWNLOAD_RATE_LIMIT` if
 the bot shares its connection with anything you care about — both in
 `envs/worker.local.env`.
 
+**Watch `API_WORKERS`.** Each uvicorn worker is a separate process holding a
+full copy of the application, so the shipped default of 1 is deliberate: the API
+hands a request to the queue and nothing else, and raising it multiplies
+resident memory for no throughput anyone here needs. A container that exits with
+**137** was killed by the kernel, not by the application, and on a small host
+this is the usual reason.
+
 ## Cookies
 
 Some sites only serve content to an authenticated session. Export your cookies
