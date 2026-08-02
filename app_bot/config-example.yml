@@ -11,9 +11,14 @@ telegram:
   # Remove the message a link arrived in once the file has been delivered.
   # Applies to everyone; a user below may override it either way.
   delete_source_message: !!bool False
+  # How long the bot's own startup message stays in the chat, in seconds.
+  # It goes to admins below who kept send_startup_message, and it is silent.
+  # 0 keeps it forever.
+  startup_message_ttl: 3600
   allowed_users:  # Multiple users/groups are allowed.
     - id: 11111111111  # User or group ID.
       is_admin: !!bool True
+      # Only honoured for admins: a restart is not news for anyone else.
       send_startup_message: !!bool True
       download_media_type: "VIDEO"
       save_to_storage: !!bool False

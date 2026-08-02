@@ -17,3 +17,6 @@ dependencies = [
 # from the sibling directory the Dockerfile copies in.
 pythonpath = [".", "../yt_shared/src"]
 testpaths = ["tests"]
+# Coroutines are marked one by one rather than collected wholesale, so an
+# accidentally-async test cannot pass by never being awaited.
+asyncio_mode = "strict"

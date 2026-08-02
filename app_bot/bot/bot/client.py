@@ -1,5 +1,4 @@
 import asyncio
-import html
 import logging
 from collections import defaultdict
 from collections.abc import Iterable
@@ -11,6 +10,8 @@ from pyrogram.errors import RPCError
 
 from bot.core.i18n import t
 from bot.core.schemas import ConfigSchema, UserSchema
+from bot.core.startup_message_store import PostgresStartupMessageStore
+from bot.core.startup_notice import StartupNotice
 
 
 class VideoBotClient(Client):
@@ -26,6 +27,7 @@ class VideoBotClient(Client):
 
         self.allowed_users: dict[int, UserSchema] = {}
         self.admin_users: dict[int, UserSchema] = {}
+        self.startup_notice = StartupNotice(self, PostgresStartupMessageStore())
 
         for user in self.conf.telegram.allowed_users:
             self.allowed_users[user.id] = user
@@ -39,13 +41,6 @@ class VideoBotClient(Client):
         while True:
             await asyncio.sleep(self._RUN_FOREVER_SLEEP_SECONDS)
 
-    def get_startup_users(self) -> list[int]:
-        user_ids: list[int] = []
-        for user in self.allowed_users.values():
-            if user.send_startup_message:
-                user_ids.append(user.id)
-        return user_ids
-
     def language_for(self, *candidate_ids: int | None) -> str:
         """Pick the language to address someone in: theirs, or the global default.
 
@@ -58,15 +53,6 @@ class VideoBotClient(Client):
             if user is not None and user.lang_code:
                 return user.lang_code
         return self.conf.telegram.lang_code
-
-    async def send_startup_message(self) -> None:
-        """Send welcome message after bot launch."""
-        self._log.info('Sending welcome message')
-        await self.send_translated_to_users(
-            key='start.startup',
-            user_ids=self.get_startup_users(),
-            name=html.escape((await self.get_me()).first_name),
-        )
 
     async def send_translated_to_users(
         self, key: str, user_ids: Iterable[int], **params: Any

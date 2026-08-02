@@ -27,6 +27,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install \
             'pytest>=8' \
+            'pytest-asyncio>=0.23' \
             'ruff>=0.9' \
             'pydantic>=2.10' \
             'pydantic-settings>=2.7' \

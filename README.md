@@ -237,6 +237,17 @@ other sites decide for themselves.
 
 **Logging.** `LOG_LEVEL` in `envs/common.env`.
 
+**A quiet start.** When the bot comes up it posts one message — a greeting, with
+the yt-dlp version appended to it once that check finishes — to admins who kept
+`send_startup_message`, without a notification sound, and removes it again after
+`telegram.startup_message_ttl` seconds (default 3600, `0` keeps it). The ids are
+recorded so that a restart within that window clears the previous one rather
+than orphaning it.
+
+The recurring "a new yt-dlp version is out" notice is not removed: it asks you
+to rebuild the worker, and a call to action that evaporates overnight is worse
+than none.
+
 **Tidying the chat.** `telegram.delete_source_message` removes the message a
 link arrived in once the file has been delivered — the caption on the file
 already carries the link. It applies to everyone, and any user can override it:

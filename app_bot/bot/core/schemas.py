@@ -1,7 +1,13 @@
 from abc import ABC
 from typing import Annotated
 
-from pydantic import AfterValidator, Field, PositiveInt, field_validator
+from pydantic import (
+    AfterValidator,
+    Field,
+    NonNegativeInt,
+    PositiveInt,
+    field_validator,
+)
 from yt_shared.enums import DownMediaType, YtdlpReleaseChannelType
 from yt_shared.schemas.base import StrictBaseConfigModel
 
@@ -83,6 +89,8 @@ class TelegramSchema(StrictBaseConfigModel):
     url_validation_regexes: list[str]
     # Default for everyone; a user may still opt out individually.
     delete_source_message: bool = False
+    # Seconds the bot's own startup message stays in the chat. 0 keeps it.
+    startup_message_ttl: NonNegativeInt = 3600
     allowed_users: list[UserSchema]
     api: ApiSchema
 

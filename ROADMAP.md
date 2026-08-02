@@ -91,6 +91,31 @@ Surviving a restart was explicitly out of scope and still is: the store lives in
 the process, so `/restartbot` orphans every keyboard on screen and pressing one
 answers "this request has expired", which is what happened. See the backlog.
 
+### Quiet startup
+
+One silent message to admins who kept `send_startup_message`, removed after
+`telegram.startup_message_ttl` (default 3600, `0` keeps it). The greeting goes
+out immediately and the version line is appended by editing it, so a slow
+GitHub cannot cost you the "it came back" signal. No new locale keys: the two
+halves are `start.startup` and `ytdlp.up_to_date` / `ytdlp.new_version`.
+
+Silent by request — `disable_notification` on the send; editing never notifies
+anyway. The recurring new-version notice is left alone: it asks for a rebuild.
+
+Message ids live in Postgres, because nothing under `/app` survives the
+container and `redeploy.sh` recreates it — which is the exact case the record
+has to outlast. Persistence sits behind a small store interface rather than
+inside the notice: importing `yt_shared.db.session` builds the engine at import
+time and drags in asyncpg, which would have put a database driver on the path of
+every bot unit test and in CI.
+
+`send_startup_message` narrows to "an admin who has not opted out"; for
+non-admins it is now inert, noted in `config-example.yml`.
+
+This is the one place the suite uses fakes. The pure-functions boundary was
+about not building machinery to reach trivial code; here the code deletes
+messages in people's chats, and the orchestration is the behaviour.
+
 ---
 
 ## Queued
@@ -131,47 +156,6 @@ suite deliberately does not cross for a one-line control-flow fix.
 ---
 
 ## Backlog
-
-### Quiet startup — specified, ready to pick up
-
-**Today.** Two messages on every restart. `_notify_outdated` goes to admins
-only, which is right; the greeting and `_notify_up_to_date` go to everyone with
-`send_startup_message: true` — including people who cannot act on a yt-dlp
-version at all. Restarts are frequent here, so the chat accumulates them.
-
-**Target.** One message, to admins, that removes itself.
-
-- **Recipients:** admins ∩ `send_startup_message`. The flag survives as an
-  opt-out for an admin who does not want the notice; non-admins never receive
-  one. Its meaning narrows — worth a note in `config-example.yml`.
-- **One message, built in two steps.** The greeting is sent immediately; when
-  the version check finishes, that same message is **edited** to append the
-  version line. Waiting for the check instead would mean no greeting at all
-  whenever GitHub is slow or down.
-- **No new locale keys.** The two halves are the existing `start.startup` and
-  `ytdlp.up_to_date` / `ytdlp.new_version`, joined with a newline.
-- **TTL:** `telegram.startup_message_ttl` in `config.yml`, default `3600`, `0`
-  keeps the message. Changeable live through `/config set`.
-- **The periodic "new version" notice is not deleted.** It asks the reader to
-  rebuild the worker; a call to action that evaporates overnight is worse than
-  no notice. Only startup noise is ephemeral.
-
-**The one awkward part is bookkeeping.** The timer lives in the process, so a
-restart inside the TTL window orphans the message forever — and startup messages
-appear precisely at restarts. So the sent message ids are recorded, and the next
-startup deletes the previous batch before sending a new one: the timer handles
-the normal case, the startup sweep handles the crash case.
-
-Storage: **PostgreSQL**, which the bot already talks to and which already has
-Alembic, so no new dependency and a trivial migration. Redis is the alternative
-— it is already running for the API and gives TTL for free — at the cost of a
-dependency the bot does not currently have.
-
-Telegram refuses to delete anything older than **48 hours**; when the bot has
-been down longer, log it and move on, as already done for source-message
-deletion.
-
-Fold in the two `ytdlp.py` fixes above while in that file.
 
 ### `file_id` cache — the largest single win
 

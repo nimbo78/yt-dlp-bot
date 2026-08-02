@@ -19,7 +19,7 @@ class YtdlpNewVersionNotifyTask(AbstractTask):
     def __init__(self, bot: 'VideoBotClient') -> None:
         super().__init__()
         self._bot = bot
-        self._startup_message_sent = False
+        self._first_check_done = False
         self._ytdlp_conf = get_main_config().ytdlp
 
     async def run(self) -> None:
@@ -63,33 +63,43 @@ class YtdlpNewVersionNotifyTask(AbstractTask):
             ).get_version_context()
             if context.has_new_version:
                 self._log.info('yt-dlp has new version: %s', context.latest.version)
-                if self._ytdlp_conf.notify_users_on_new_version:
-                    await self._notify_outdated(context)
-                # Return either way. Falling through with notifications turned
-                # off used to report the version as up to date, which it is not.
+
+            if not self._first_check_done:
+                # The first result belongs on the startup message, whichever way
+                # it went: it is the same sentence, and one message beats two.
+                self._first_check_done = True
+                await self._extend_startup_notice(context)
                 return
 
-            if not self._startup_message_sent:
-                await self._notify_up_to_date(
-                    context, user_ids=self._bot.get_startup_users()
-                )
-                self._startup_message_sent = True
+            if context.has_new_version and self._ytdlp_conf.notify_users_on_new_version:
+                await self._notify_outdated(context)
+
+    async def _extend_startup_notice(self, ctx: VersionContext) -> None:
+        """Append the version line to the message posted at startup.
+
+        Says what is true regardless of ``notify_users_on_new_version``: that
+        setting governs the recurring notice below, not whether an admin reading
+        their own startup message is told the truth about the version.
+        """
+        if ctx.has_new_version:
+            await self._bot.startup_notice.append(
+                'ytdlp.new_version',
+                channel=self._ytdlp_conf.release_channel,
+                latest=ctx.latest.version,
+                current=ctx.current.version,
+            )
+            return
+        await self._bot.startup_notice.append(
+            'ytdlp.up_to_date',
+            channel=self._ytdlp_conf.release_channel,
+            current=ctx.current.version,
+        )
 
     async def _notify_outdated(self, ctx: VersionContext) -> None:
+        """Post a standalone notice, which stays: it asks the reader to rebuild."""
         await self._bot.send_translated_to_admins(
             key='ytdlp.new_version',
             channel=self._ytdlp_conf.release_channel,
             latest=ctx.latest.version,
-            current=ctx.current.version,
-        )
-
-    async def _notify_up_to_date(
-        self, ctx: VersionContext, user_ids: list[int]
-    ) -> None:
-        """Send startup message that yt-dlp version is up-to-date."""
-        await self._bot.send_translated_to_users(
-            key='ytdlp.up_to_date',
-            user_ids=user_ids,
-            channel=self._ytdlp_conf.release_channel,
             current=ctx.current.version,
         )

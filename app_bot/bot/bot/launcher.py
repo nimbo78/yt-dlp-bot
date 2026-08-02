@@ -161,6 +161,9 @@ class BotLauncher:
         await self._bot.start()
 
         self._log.info('Starting "%s"', (await self._bot.get_me()).first_name)
-        await self._bot.send_startup_message()
+        # Clear before announcing: a restart inside the previous message's
+        # lifetime would otherwise leave it behind for good.
+        await self._bot.startup_notice.clear_previous()
+        await self._bot.startup_notice.announce()
         await self._start_tasks()
         await self._bot.run_forever()
