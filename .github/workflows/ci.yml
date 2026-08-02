@@ -22,15 +22,22 @@ jobs:
       # in isolation, so pulling in Pyrogram, yt-dlp, SQLAlchemy and the rest
       # would cost minutes and add failure modes that say nothing about this
       # repository.
+      #
+      # ruff is pinned rather than floored. Every other entry is a library the
+      # tests call, and a new release of one of those does not invent new
+      # opinions; a new ruff does, and an unpinned linter turns the build red on
+      # a day nothing here changed. Moving the pin is a commit, with whatever
+      # the new release wants fixed in the same one.
       - name: Install tools
         run: |
           python -m pip install --upgrade pip
           python -m pip install \
             'pytest>=8' \
             'pytest-asyncio>=0.23' \
-            'ruff>=0.9' \
+            'ruff==0.16.1' \
             'pydantic>=2.10' \
             'pydantic-settings>=2.7' \
+            'pillow>=11' \
             'pyyaml>=6' \
             'ruamel.yaml>=0.18' \
             'fastapi>=0.115' \

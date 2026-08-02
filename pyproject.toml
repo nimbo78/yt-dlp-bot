@@ -40,6 +40,8 @@ inline-quotes = "single"
 
 [tool.ruff.lint]
 select = ["ALL"]
+# Rules that graduate from preview into a stable ruff release land here too, so
+# a new ruff must be tried against the tree before the pin in CI is moved.
 ignore = [
     "ANN002",
     "ANN003",
@@ -47,6 +49,7 @@ ignore = [
     "ASYNC110",
     "BLE001",
     "COM812",
+    "CPY001",   # no copyright header on every file, thanks
     "D100",
     "D101",
     "D102",
@@ -65,7 +68,17 @@ ignore = [
     "FIX002",
     "INP001",
     "ISC001",
+    # A long message wrapped across two lines is written as implicit
+    # concatenation throughout, including inside the pattern and sample tables.
+    # The rule guards against a comma missing from a list of short literals,
+    # which is not the shape any of these have.
+    "ISC004",
     "PERF401",
+    # The sibling of PLR0913, which the handful of wide signatures already
+    # acknowledge where they are declared. Ignored globally rather than added to
+    # those `noqa` comments, which would read as unused on a ruff that still
+    # keeps this rule in preview.
+    "PLR0917",
     "TD002",
     "TD003",
     "TRY003",
