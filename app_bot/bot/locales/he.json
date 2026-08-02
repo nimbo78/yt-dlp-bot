@@ -11,6 +11,7 @@
     "button_video": "🎬 וידאו",
     "button_audio": "🎵 אודיו",
     "button_both": "🎬+🎵 שניהם",
+    "button_show_playlist": "📋 הצג את הרשימה",
     "button_cancel": "❌ ביטול",
     "button_back": "⬅️ חזרה",
     "button_download_audio": "⬇️ הורדת אודיו",
@@ -27,6 +28,16 @@
     "invalid_selection": "הכפתור הזה כבר לא תקף",
     "session_expired": "הבקשה פגה — שלחו את הקישור שוב",
     "invalid_media_type": "סוג מדיה לא מוכר"
+  },
+
+  "playlist": {
+    "reading": "📋 <b>קורא את הפלייליסט…</b>",
+    "reading_toast": "קורא את הפלייליסט",
+    "header": "📋 <b>{title}</b>\n\nבחרו אחד מתוך {shown} הפריטים:",
+    "header_truncated": "📋 <b>{title}</b>\n\nמוצגים {shown} מתוך {total}. בחרו אחד:",
+    "empty": "🤷 <b>אין מה להציע כאן</b>\n\nהקישור מוביל לאוסף, אבל אין בו שום דבר להורדה.",
+    "failed": "🛑 <b>לא הצלחתי לקרוא את הפלייליסט</b>\n\nהאתר לא הסביר למה. נסו את הקישור שוב עוד רגע.",
+    "expired": "הרשימה הזו כבר לא זמינה — שלחו את הקישור שוב"
   },
 
   "progress": {

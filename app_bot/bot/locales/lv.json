@@ -11,6 +11,7 @@
     "button_video": "🎬 Video",
     "button_audio": "🎵 Audio",
     "button_both": "🎬+🎵 Abus",
+    "button_show_playlist": "📋 Rādīt sarakstu",
     "button_cancel": "❌ Atcelt",
     "button_back": "⬅️ Atpakaļ",
     "button_download_audio": "⬇️ Lejupielādēt audio",
@@ -27,6 +28,16 @@
     "invalid_selection": "Šī poga vairs nav derīga",
     "session_expired": "Šis pieprasījums ir novecojis — nosūtiet saiti vēlreiz",
     "invalid_media_type": "Nezināms medija tips"
+  },
+
+  "playlist": {
+    "reading": "📋 <b>Lasu atskaņošanas sarakstu…</b>",
+    "reading_toast": "Lasu sarakstu",
+    "header": "📋 <b>{title}</b>\n\nIzvēlieties vienu no {shown} vienumiem:",
+    "header_truncated": "📋 <b>{title}</b>\n\nParādīts {shown} no {total}. Izvēlieties vienu:",
+    "empty": "🤷 <b>Nav ko piedāvāt</b>\n\nSaite ved uz krājumu, bet no tā neko nevar lejupielādēt.",
+    "failed": "🛑 <b>Neizdevās nolasīt atskaņošanas sarakstu</b>\n\nVietne neteica, kāpēc. Pamēģiniet saiti pēc brīža vēlreiz.",
+    "expired": "Šis saraksts vairs nav pieejams — nosūtiet saiti vēlreiz"
   },
 
   "progress": {

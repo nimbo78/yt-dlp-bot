@@ -5,3 +5,4 @@ class RabbitWorkerType(StrEnum):
     ERROR = 'ERROR'
     SUCCESS = 'SUCCESS'
     PROGRESS = 'PROGRESS'
+    PLAYLIST = 'PLAYLIST'

@@ -11,6 +11,7 @@
     "button_video": "🎬 Vídeo",
     "button_audio": "🎵 Audio",
     "button_both": "🎬+🎵 Ambos",
+    "button_show_playlist": "📋 Mostrar la lista",
     "button_cancel": "❌ Cancelar",
     "button_back": "⬅️ Atrás",
     "button_download_audio": "⬇️ Descargar el audio",
@@ -27,6 +28,16 @@
     "invalid_selection": "Este botón ya no es válido",
     "session_expired": "La petición ha caducado — envía el enlace otra vez",
     "invalid_media_type": "Tipo de medio desconocido"
+  },
+
+  "playlist": {
+    "reading": "📋 <b>Leyendo la lista…</b>",
+    "reading_toast": "Leyendo la lista",
+    "header": "📋 <b>{title}</b>\n\nElige uno de los {shown} elementos:",
+    "header_truncated": "📋 <b>{title}</b>\n\nMostrando {shown} de {total}. Elige uno:",
+    "empty": "🤷 <b>No hay nada que ofrecer</b>\n\nEl enlace lleva a una colección, pero no contiene nada descargable.",
+    "failed": "🛑 <b>No pude leer la lista</b>\n\nEl sitio no dijo por qué. Prueba el enlace otra vez en un momento.",
+    "expired": "Esta lista ya no está disponible — envía el enlace otra vez"
   },
 
   "progress": {

@@ -1,3 +1,4 @@
+import html
 import logging
 import re
 from itertools import product
@@ -10,6 +11,7 @@ from yt_shared.constants import REMOVE_QUERY_PARAMS_HOSTS
 from yt_shared.enums import DownMediaType, TaskSource, TelegramChatType, VideoQuality
 from yt_shared.rabbit.publisher import RmqPublisher
 from yt_shared.schemas.media import InbMediaPayload
+from yt_shared.schemas.playlist import PlaylistRequestPayload
 
 from bot.bot.client import VideoBotClient
 from bot.core.i18n import t
@@ -18,9 +20,17 @@ from bot.core.keyboards import (
     DOWNLOAD_PREFIX,
     MEDIA_TYPE_PREFIX,
     build_media_type_keyboard,
+    build_playlist_keyboard,
     build_quality_keyboard,
 )
 from bot.core.pending_downloads import PendingDownload, generate_url_id
+from bot.core.playlist_menu import (
+    PLAYLIST_ITEM_PREFIX,
+    PLAYLIST_NOOP,
+    PLAYLIST_PAGE_PREFIX,
+    PLAYLIST_PREFIX,
+    find_entry,
+)
 from bot.core.playlists import is_collection_link
 from bot.core.schemas import UserSchema
 from bot.core.utils import bold, can_remove_url_params, get_user_id
@@ -124,20 +134,15 @@ class TelegramCallback:
     ) -> None:
         """Show inline keyboard for format selection."""
         from_user_id = message.from_user.id if message.from_user else None
-
-        # Preprocess URL
-        if can_remove_url_params(url=url, matching_hosts=REMOVE_QUERY_PARAMS_HOSTS):
-            processed_url = urljoin(url, urlparse(url).path)
-        else:
-            processed_url = url
+        processed_url = self._preprocess_url(url)
 
         # The worker downloads one item and says nothing about the rest, so a
         # link to a collection has to say it here — before a format is chosen,
-        # while the person is still looking at the message.
+        # while the person is still looking at the message. The same answer
+        # decides whether to offer the list, so it is taken once.
+        is_collection = is_collection_link(url)
         warning = (
-            f'\n\n{t("format.playlist_warning", language)}'
-            if is_collection_link(url)
-            else ''
+            f'\n\n{t("format.playlist_warning", language)}' if is_collection else ''
         )
 
         # Send message with format selection keyboard
@@ -148,6 +153,7 @@ class TelegramCallback:
             reply_markup=build_media_type_keyboard(
                 url_id=generate_url_id(message.chat.id, message.id),
                 language=language,
+                offer_playlist=is_collection,
             ),
         )
 
@@ -167,6 +173,13 @@ class TelegramCallback:
         )
         await client.pending_downloads.add(url_id, pending)
 
+    @staticmethod
+    def _preprocess_url(url: str) -> str:
+        """Drop the tracking parameters some hosts append to their own links."""
+        if can_remove_url_params(url=url, matching_hosts=REMOVE_QUERY_PARAMS_HOSTS):
+            return urljoin(url, urlparse(url).path)
+        return url
+
     async def on_callback_query(
         self, client: VideoBotClient, callback_query: CallbackQuery
     ) -> None:
@@ -179,12 +192,134 @@ class TelegramCallback:
             callback_query.message.chat.id if callback_query.message else None,
         )
 
-        if data.startswith(MEDIA_TYPE_PREFIX):
+        # Checked before MEDIA_TYPE_PREFIX has a chance: nothing here shares a
+        # prefix today, but 'pl:' and 'pp:' are one character from each other
+        # and the order is the only thing keeping that honest.
+        if data == PLAYLIST_NOOP:
+            # The page counter. It is a button because a keyboard row has
+            # nowhere else to put one, and it does nothing on purpose.
+            await callback_query.answer()
+        elif data.startswith(PLAYLIST_ITEM_PREFIX):
+            await self._handle_playlist_item(client, callback_query, language)
+        elif data.startswith(PLAYLIST_PAGE_PREFIX):
+            await self._handle_playlist_page(client, callback_query, language)
+        elif data.startswith(PLAYLIST_PREFIX):
+            await self._handle_playlist_request(client, callback_query, language)
+        elif data.startswith(MEDIA_TYPE_PREFIX):
             await self._handle_media_type_selection(client, callback_query, language)
         elif data.startswith(DOWNLOAD_PREFIX):
             await self._handle_download_selection(client, callback_query, language)
         elif data.startswith(CANCEL_PREFIX):
             await self._handle_cancel(client, callback_query, language)
+
+    async def _handle_playlist_request(
+        self, client: VideoBotClient, callback_query: CallbackQuery, language: str
+    ) -> None:
+        """Ask the worker to list what is behind a collection link."""
+        url_id = callback_query.data.removeprefix(PLAYLIST_PREFIX)
+        pending = await client.pending_downloads.get(url_id)
+        if not pending:
+            await callback_query.answer(t('format.session_expired', language))
+            await callback_query.message.delete()
+            return
+
+        payload = PlaylistRequestPayload(
+            url_id=url_id,
+            url=pending.url,
+            from_chat_id=pending.from_chat_id,
+            ack_message_id=pending.ack_message_id,
+        )
+        if not await self._rmq_publisher.send_playlist_request(payload):
+            self._log.error('Failed to queue playlist request for %s', pending.url)
+            await callback_query.answer(t('format.queue_failed', language))
+            return
+
+        # Reading a playlist takes a network round trip, and a keyboard that
+        # does not visibly react to a press reads as a keyboard that is broken.
+        await callback_query.answer(t('playlist.reading_toast', language))
+        await callback_query.message.edit_text(
+            text=t('playlist.reading', language), parse_mode=ParseMode.HTML
+        )
+
+    async def _handle_playlist_page(
+        self, client: VideoBotClient, callback_query: CallbackQuery, language: str
+    ) -> None:
+        """Turn to another page of an already-read playlist."""
+        url_id, _, page_str = callback_query.data.removeprefix(
+            PLAYLIST_PAGE_PREFIX
+        ).rpartition(':')
+        try:
+            page = int(page_str)
+        except ValueError:
+            # A malformed page number is not worth a database read.
+            await callback_query.answer(t('format.invalid_selection', language))
+            return
+
+        playlist = await client.playlists.load(url_id)
+        if playlist is None:
+            await callback_query.answer(t('playlist.expired', language))
+            return
+
+        markup, _ = build_playlist_keyboard(playlist.entries, url_id, page, language)
+        try:
+            await callback_query.edit_message_reply_markup(reply_markup=markup)
+        except Exception:
+            # Telegram refuses an edit that changes nothing, which a double
+            # press produces. Answering anyway stops the button spinning, and
+            # the page on screen is already the one that was asked for.
+            self._log.debug('Could not turn to page %d of %s', page, url_id)
+        await callback_query.answer()
+
+    async def _handle_playlist_item(
+        self, client: VideoBotClient, callback_query: CallbackQuery, language: str
+    ) -> None:
+        """Take one item out of the playlist and treat it as an ordinary link.
+
+        The pending download is rewritten to point at the chosen entry, which
+        puts the rest of this on the path every other link already takes:
+        format, quality, cache, download. Nothing downstream learns that a
+        playlist was involved.
+        """
+        url_id, _, index_str = callback_query.data.removeprefix(
+            PLAYLIST_ITEM_PREFIX
+        ).rpartition(':')
+        pending = await client.pending_downloads.get(url_id)
+        if not pending:
+            await callback_query.answer(t('format.session_expired', language))
+            await callback_query.message.delete()
+            return
+
+        playlist = await client.playlists.load(url_id)
+        if playlist is None:
+            await callback_query.answer(t('playlist.expired', language))
+            return
+
+        try:
+            entry = find_entry(playlist.entries, int(index_str))
+        except ValueError:
+            entry = None
+        if entry is None:
+            await callback_query.answer(t('format.invalid_selection', language))
+            return
+
+        pending.url = self._preprocess_url(entry.url)
+        pending.original_url = entry.url
+        await client.pending_downloads.add(url_id, pending)
+        # The menu has done its job; keeping it invites a second pick that
+        # would silently replace the first.
+        await client.playlists.delete(url_id)
+
+        await callback_query.message.edit_text(
+            # Escaped: the URL comes from the site, and an unescaped `&` or `<`
+            # makes Telegram reject the edit rather than render it oddly.
+            text=(
+                f'{t("format.choose", language)}\n\n'
+                f'<code>{html.escape(entry.url)}</code>'
+            ),
+            parse_mode=ParseMode.HTML,
+            reply_markup=build_media_type_keyboard(url_id, language),
+        )
+        await callback_query.answer()
 
     async def _handle_media_type_selection(
         self, client: VideoBotClient, callback_query: CallbackQuery, language: str
@@ -213,7 +348,14 @@ class TelegramCallback:
                     f'<code>{pending.original_url}</code>'
                 ),
                 parse_mode=ParseMode.HTML,
-                reply_markup=build_media_type_keyboard(url_id, language),
+                # Recomputed rather than remembered: after an item was picked
+                # the pending download points at that item, so the offer to
+                # list correctly disappears.
+                reply_markup=build_media_type_keyboard(
+                    url_id,
+                    language,
+                    offer_playlist=is_collection_link(pending.original_url),
+                ),
             )
             await callback_query.answer()
             return

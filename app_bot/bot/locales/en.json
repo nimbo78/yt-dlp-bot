@@ -11,6 +11,7 @@
     "button_video": "🎬 Video",
     "button_audio": "🎵 Audio",
     "button_both": "🎬+🎵 Both",
+    "button_show_playlist": "📋 Show the list",
     "button_cancel": "❌ Cancel",
     "button_back": "⬅️ Back",
     "button_download_audio": "⬇️ Download audio",
@@ -27,6 +28,16 @@
     "invalid_selection": "That button is no longer valid",
     "session_expired": "This request has expired — send the link again",
     "invalid_media_type": "Unknown media type"
+  },
+
+  "playlist": {
+    "reading": "📋 <b>Reading the playlist…</b>",
+    "reading_toast": "Reading the playlist",
+    "header": "📋 <b>{title}</b>\n\nPick one of the {shown} items:",
+    "header_truncated": "📋 <b>{title}</b>\n\nShowing {shown} of {total}. Pick one:",
+    "empty": "🤷 <b>Nothing to offer here</b>\n\nThe link is a collection, but nothing in it can be downloaded.",
+    "failed": "🛑 <b>Could not read the playlist</b>\n\nThe site did not say why. Try the link again in a moment.",
+    "expired": "This list is no longer available — send the link again"
   },
 
   "progress": {

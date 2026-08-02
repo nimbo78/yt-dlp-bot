@@ -4,6 +4,12 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from yt_shared.enums import DownMediaType, VideoQuality
 
 from bot.core.i18n import t
+from bot.core.playlist_menu import (
+    PLAYLIST_PREFIX,
+    MenuEntry,
+    MenuPage,
+    build_menu,
+)
 
 # Callback data prefixes
 MEDIA_TYPE_PREFIX = 'mt:'
@@ -12,9 +18,53 @@ DOWNLOAD_PREFIX = 'dl:'
 CANCEL_PREFIX = 'cancel:'
 
 
-def build_media_type_keyboard(url_id: str, language: str) -> InlineKeyboardMarkup:
-    """Build keyboard for selecting media type (Video/Audio)."""
+def build_playlist_keyboard(
+    entries: list[MenuEntry], url_id: str, page: int, language: str
+) -> tuple[InlineKeyboardMarkup, MenuPage]:
+    """Render one page of a playlist as buttons.
+
+    The layout is decided in `playlist_menu`, which knows nothing of Pyrogram
+    and is therefore testable; this only turns the result into markup.
+    """
+    menu = build_menu(
+        entries,
+        url_id,
+        page,
+        cancel_label=t('format.button_cancel', language),
+    )
+    markup = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(button.label, callback_data=button.data)
+            for button in row
+        ]
+        for row in menu.rows
+    ])
+    return markup, menu
+
+
+def build_media_type_keyboard(
+    url_id: str, language: str, *, offer_playlist: bool = False
+) -> InlineKeyboardMarkup:
+    """Build keyboard for selecting media type (Video/Audio).
+
+    A link that points at many items gets one extra button, offering to list
+    them. Only then: enumerating costs a request to the site, so it happens
+    because somebody asked, not because a link looked like a playlist.
+    """
+    playlist_row = (
+        [
+            [
+                InlineKeyboardButton(
+                    t('format.button_show_playlist', language),
+                    callback_data=f'{PLAYLIST_PREFIX}{url_id}',
+                ),
+            ]
+        ]
+        if offer_playlist
+        else []
+    )
     return InlineKeyboardMarkup([
+        *playlist_row,
         [
             InlineKeyboardButton(
                 t('format.button_video', language),

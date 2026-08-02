@@ -25,6 +25,8 @@ class RabbitPayloadType(StrChoiceEnum):
     GENERAL_ERROR = 'GENERAL_ERROR'
     SUCCESS = 'SUCCESS'
     PROGRESS = 'PROGRESS'
+    PLAYLIST_REQUEST = 'PLAYLIST_REQUEST'
+    PLAYLIST_RESULT = 'PLAYLIST_RESULT'
 
 
 class ProgressStage(StrChoiceEnum):

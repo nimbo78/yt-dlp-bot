@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from yt_shared.utils.tasks.tasks import create_task
 
 from bot.core.workers.error import ErrorDownloadResultWorker
+from bot.core.workers.playlist import PlaylistWorker
 from bot.core.workers.progress import ProgressWorker
 from bot.core.workers.success import SuccessDownloadResultWorker
 
@@ -19,6 +20,7 @@ class RabbitWorkerManager:
         ErrorDownloadResultWorker,
         SuccessDownloadResultWorker,
         ProgressWorker,
+        PlaylistWorker,
     )
 
     def __init__(self, bot: 'VideoBotClient') -> None:

@@ -4,7 +4,7 @@ import logging
 from yt_dlp import version as ytdlp_version
 from yt_shared.db.session import get_db
 from yt_shared.rabbit import get_rabbitmq
-from yt_shared.rabbit.rabbit_config import INPUT_QUEUE
+from yt_shared.rabbit.rabbit_config import INPUT_QUEUE, PLAYLIST_QUEUE
 from yt_shared.repositories.ytdlp import YtdlpRepository
 from yt_shared.utils.common import register_shutdown
 
@@ -48,6 +48,7 @@ class WorkerLauncher:
             prefetch_count=settings.MAX_SIMULTANEOUS_DOWNLOADS
         )
         await self._rabbit_mq.queues[INPUT_QUEUE].consume(cb.on_input_message)
+        await self._rabbit_mq.queues[PLAYLIST_QUEUE].consume(cb.on_playlist_message)
 
     async def _set_yt_dlp_version(self) -> None:
         curr_version = ytdlp_version.__version__

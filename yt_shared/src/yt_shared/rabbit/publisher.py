@@ -10,6 +10,10 @@ from yt_shared.rabbit.rabbit_config import (
     ERROR_QUEUE,
     INPUT_EXCHANGE,
     INPUT_QUEUE,
+    PLAYLIST_EXCHANGE,
+    PLAYLIST_QUEUE,
+    PLAYLIST_RESULT_EXCHANGE,
+    PLAYLIST_RESULT_QUEUE,
     PROGRESS_EXCHANGE,
     PROGRESS_QUEUE,
     SUCCESS_EXCHANGE,
@@ -17,6 +21,7 @@ from yt_shared.rabbit.rabbit_config import (
 )
 from yt_shared.schemas.error import ErrorDownloadGeneralPayload, ErrorDownloadPayload
 from yt_shared.schemas.media import InbMediaPayload
+from yt_shared.schemas.playlist import PlaylistRequestPayload, PlaylistResultPayload
 from yt_shared.schemas.progress import ProgressPayload
 from yt_shared.schemas.success import SuccessDownloadPayload
 from yt_shared.utils.common import Singleton
@@ -46,6 +51,27 @@ class RmqPublisher(metaclass=Singleton):
         err_message = aio_pika.Message(body=error_payload.model_dump_json().encode())
         confirm = await err_exchange.publish(
             err_message, routing_key=ERROR_QUEUE, mandatory=True
+        )
+        return self._is_sent(confirm)
+
+    async def send_playlist_request(self, payload: PlaylistRequestPayload) -> bool:
+        """Ask the worker what is inside a playlist.
+
+        Mandatory: unlike a progress update, a lost one leaves somebody staring
+        at a keyboard that will never answer, so the caller must be told.
+        """
+        message = aio_pika.Message(body=payload.model_dump_json().encode())
+        exchange = self._rabbit_mq.exchanges[PLAYLIST_EXCHANGE]
+        confirm = await exchange.publish(
+            message, routing_key=PLAYLIST_QUEUE, mandatory=True
+        )
+        return self._is_sent(confirm)
+
+    async def send_playlist_result(self, payload: PlaylistResultPayload) -> bool:
+        message = aio_pika.Message(body=payload.model_dump_json().encode())
+        exchange = self._rabbit_mq.exchanges[PLAYLIST_RESULT_EXCHANGE]
+        confirm = await exchange.publish(
+            message, routing_key=PLAYLIST_RESULT_QUEUE, mandatory=True
         )
         return self._is_sent(confirm)
 

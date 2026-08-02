@@ -252,6 +252,40 @@ exhaustive on the single-item side.
 
 This is the honest minimum, not playlist support; see the backlog for the rest.
 
+### Picking one item out of a playlist
+
+The warning above says what will happen. This offers the alternative: a button
+that lists what is behind the link, and downloads whichever item is chosen.
+
+Enumerating has to happen in the worker. yt-dlp is a dependency of `app_worker`
+alone, and adding it to `app_bot` means regenerating that package's `uv.lock` —
+the same wall that ruled out a Redis client earlier. So the question travels
+over RabbitMQ like everything else that crosses the two, on a queue of its own
+with a five-minute TTL: somebody is holding a keyboard open, and an answer that
+arrives after they have given up is worse than none.
+
+`--flat-playlist` reads the index page and stops — no per-item requests and
+nothing downloaded — but what comes back is loose, and a button built on a bad
+entry does nothing when pressed, which is the failure nobody reports. Parsing is
+therefore separated from fetching and handed a dict, which turns every awful
+shape into a test: `None` entries, `[Deleted video]` titles, missing titles, the
+URL under three different keys, a bare id where an address was expected.
+
+Choosing an item rewrites the pending download to point at it and hands over to
+the ordinary flow — format, quality, cache, download. Nothing downstream learns
+a playlist was involved, which is why this needed no changes to the worker's
+download path, the task model or the upload path.
+
+Two limits decide the shape of the menu, and neither announces itself when
+exceeded. Callback data is capped at 64 bytes, so a press carries an index into
+stored state rather than a URL; the budget is asserted in the tests against the
+widest identifier the bot can generate. And a long title wraps unreadably on a
+phone, so titles are cut here rather than left to the client.
+
+The entry list lives in Postgres for six hours — shorter than the pending
+choices' two days, because a menu is read within minutes or not at all and a
+playlist gains and loses items while nobody is looking.
+
 ---
 
 ## Queued
@@ -316,17 +350,18 @@ those locks needs `uv`, which is why it has not happened yet.
 When there is more than one client with different rights. The bearer token
 above covers the actual need for a self-hosted deployment.
 
-### Playlists, actually downloading them
+### Playlists, downloading several at once
 
-Saying so is done (above); doing it is not. The obstacle is not the yt-dlp
-options, it is the pipeline: a task carries one `DownMedia`, the worker's
-validators want paths that exist, and the bot renders progress for a single
-file. Several items means several tasks, progress across them, a limit, and a
-way to stop halfway — "download all 200" is not a feature on this hardware.
+Picking one out of a playlist is done (above). Taking a batch is not, and the
+obstacle is not the yt-dlp options — it is the pipeline. A task carries one
+`DownMedia`, the worker's validators want paths that exist, the bot renders
+progress into a single message, and there is no way to stop a run halfway. N
+items means N tasks, progress across them, a bound and a cancel.
 
-Worth doing only with a bound the user picks, something like "the first 10",
-and worth pricing before starting: it touches the worker, the task model, the
-upload path and the keyboard, which is more than any item shipped so far.
+The foundation is already in place: enumeration, the request channel and the
+stored entry list all belong to both. What remains is the part that costs —
+and on a host under a gigabyte, "download all 200" is not obviously wanted even
+once it works. Worth a bound the user picks, and worth pricing before starting.
 
 ---
 

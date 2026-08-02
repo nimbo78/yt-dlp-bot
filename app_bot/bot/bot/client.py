@@ -13,6 +13,7 @@ from bot.core.file_cache_store import PostgresFileCacheStore
 from bot.core.i18n import t
 from bot.core.pending_download_store import PostgresPendingDownloadStore
 from bot.core.pending_downloads import PendingDownloads
+from bot.core.playlist_store import PostgresPlaylistStore
 from bot.core.schemas import ConfigSchema, UserSchema
 from bot.core.startup_message_store import PostgresStartupMessageStore
 from bot.core.startup_notice import StartupNotice
@@ -39,6 +40,7 @@ class VideoBotClient(Client):
         self.pending_downloads = PendingDownloads(
             PostgresPendingDownloadStore(self)
         )
+        self.playlists = PostgresPlaylistStore()
 
         for user in self.conf.telegram.allowed_users:
             self.allowed_users[user.id] = user

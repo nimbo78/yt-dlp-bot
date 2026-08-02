@@ -11,6 +11,7 @@
     "button_video": "🎬 Vaizdas",
     "button_audio": "🎵 Garsas",
     "button_both": "🎬+🎵 Abu",
+    "button_show_playlist": "📋 Rodyti sąrašą",
     "button_cancel": "❌ Atšaukti",
     "button_back": "⬅️ Atgal",
     "button_download_audio": "⬇️ Atsisiųsti garsą",
@@ -27,6 +28,16 @@
     "invalid_selection": "Šis mygtukas nebegalioja",
     "session_expired": "Užklausa pasenusi — atsiųskite nuorodą dar kartą",
     "invalid_media_type": "Nežinomas medijos tipas"
+  },
+
+  "playlist": {
+    "reading": "📋 <b>Skaitomas grojaraštis…</b>",
+    "reading_toast": "Skaitomas grojaraštis",
+    "header": "📋 <b>{title}</b>\n\nPasirinkite vieną iš {shown} elementų:",
+    "header_truncated": "📋 <b>{title}</b>\n\nRodoma {shown} iš {total}. Pasirinkite vieną:",
+    "empty": "🤷 <b>Nėra ko pasiūlyti</b>\n\nNuoroda veda į rinkinį, bet iš jo nieko negalima atsisiųsti.",
+    "failed": "🛑 <b>Nepavyko perskaityti grojaraščio</b>\n\nSvetainė nepaaiškino kodėl. Pabandykite nuorodą po akimirkos.",
+    "expired": "Šio sąrašo nebėra — atsiųskite nuorodą dar kartą"
   },
 
   "progress": {

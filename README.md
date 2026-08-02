@@ -35,6 +35,8 @@ back — no browser, no desktop app, no files left on someone else's server.
   along and Telegram seeks the file when you tap one.
 - **The same link twice costs nothing** — Telegram already holds the file, so a
   repeat request is answered instantly instead of downloaded again.
+- **Playlists say they are playlists** — and offer a list to pick from, rather
+  than quietly handing you the first item and nothing else.
 - **Readable failures** — a suspended account, a private video or an expired
   cookie is explained in a sentence instead of a stack trace.
 - **Speaks fifteen languages** — set one for everyone, or a different one per
@@ -116,6 +118,21 @@ the database, not in the bot process, and expires after 48 hours.
 
 Anyone allowed may also use `/nocache <url>` to download a link again, ignoring
 the copy Telegram already holds.
+
+**Playlists, albums and channels.** yt-dlp is run with `--no-playlist`, so a
+link to a collection yields one item. The keyboard says so, and offers a
+**Show the list** button: pressing it reads the collection — the index page
+only, nothing is downloaded — and lists what is in it, eight to a page, up to
+100 entries. Picking one downloads exactly that item, through the same format
+and quality steps as any other link.
+
+Entries that cannot be opened are left out, so the numbers on the buttons follow
+the source rather than the list: item 3 stays 3 even if item 2 was a deleted
+video. When a collection is longer than 100 the header says "showing 100 of
+250", never just "100". A list is kept for six hours, then read again on demand.
+
+`watch?v=…&list=…` is deliberately treated as one video, since that is what
+copying the address bar during a playlist gives you.
 
 Changes are written to `config.yml` and survive a restart.
 

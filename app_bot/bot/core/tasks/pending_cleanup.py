@@ -1,13 +1,17 @@
-"""Periodic eviction of pending format choices nobody came back to.
+"""Periodic eviction of what nobody came back to.
 
 Evicting on access is not enough on its own: an entry nobody looks up again is
-never reached that way, and those are precisely the ones that accumulate.
+never reached that way, and those are precisely the ones that accumulate. That
+holds for pending format choices and for enumerated playlists alike, so both are
+swept here.
 """
 
 import asyncio
 from typing import TYPE_CHECKING
 
 from yt_shared.utils.tasks.abstract import AbstractTask
+
+from bot.core.playlist_store import cutoff as playlist_cutoff
 
 if TYPE_CHECKING:
     from bot.bot.client import VideoBotClient
@@ -39,3 +43,11 @@ class PendingCleanupTask(AbstractTask):
                     evicted,
                     await self._bot.pending_downloads.size(),
                 )
+
+            try:
+                stale = await self._bot.playlists.delete_older_than(playlist_cutoff())
+            except Exception:
+                self._log.exception('Could not sweep the stored playlists')
+                continue
+            if stale:
+                self._log.info('Dropped %d stale playlist menu(s)', stale)
