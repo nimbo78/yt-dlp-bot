@@ -11,6 +11,7 @@ from bot.core.config.config import get_main_config
 from bot.core.handlers.admin import AdminCommandHandler
 from bot.core.i18n import report_catalogue_health
 from bot.core.tasks.db_cleanup import DbCleanupTask
+from bot.core.tasks.pending_cleanup import PendingCleanupTask
 from bot.core.tasks.ytdlp import YtdlpNewVersionNotifyTask
 from bot.core.workers.manager import RabbitWorkerManager
 
@@ -128,6 +129,15 @@ class BotLauncher:
         task_name = YtdlpNewVersionNotifyTask.__class__.__name__
         create_task(
             YtdlpNewVersionNotifyTask(bot=self._bot).run(),
+            task_name=task_name,
+            logger=self._log,
+            exception_message='Task "%s" raised an exception',
+            exception_message_args=(task_name,),
+        )
+
+        task_name = PendingCleanupTask.__class__.__name__
+        create_task(
+            PendingCleanupTask().run(),
             task_name=task_name,
             logger=self._log,
             exception_message='Task "%s" raised an exception',

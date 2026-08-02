@@ -79,29 +79,24 @@ then the space is already spent. A separate metadata call would have cost an
 extra round trip, which on YouTube is exactly the request that draws the bot
 check. The progress hook gets the same number for free.
 
+### TTL for pending format choices
+
+Entries carry a monotonic `added_at` and expire after 48 hours — monotonic on
+purpose, so a clock correction cannot make one immortal or expire the lot.
+Eviction happens on access **and** in an hourly `PendingCleanupTask`, because
+eviction on access alone never reaches the entries nobody comes back to, which
+are exactly the ones that accumulate.
+
+Surviving a restart was explicitly out of scope and still is: the store lives in
+the process, so `/restartbot` orphans every keyboard on screen and pressing one
+answers "this request has expired", which is what happened. See the backlog.
+
 ---
 
 ## Queued
 
-### 1. TTL for pending format choices
-
-**Why now.** `PendingDownloadsStore` is a plain `ClassVar` dict
-(`app_bot/bot/core/pending_downloads.py`) with no eviction. Every link that was
-pasted and never answered stays in it for the life of the process. On a bot that
-runs for months that is a slow leak.
-
-**Behaviour.** Each `PendingDownload` carries a timestamp; entries older than
-the TTL are dropped. **48 hours** — a keyboard nobody touched in two days will
-not be touched. Sweeping is lazy on access **plus** a periodic task, because
-lazy alone never reaches a key nobody returns to. The existing `DbCleanupTask`
-is the pattern to copy.
-
-**Explicitly not in scope.** This does not make pending choices survive a
-restart. `/restartbot` will still orphan every keyboard on screen, because the
-dict lives in the process. That is a separate decision — see the backlog.
-
-**Done when** an entry disappears after the TTL, the periodic sweep is observed
-in the log, and the store does not grow across a long idle period.
+_Empty — everything agreed has shipped. The backlog below is specified but not
+scheduled; pick from it whenever._
 
 ---
 
