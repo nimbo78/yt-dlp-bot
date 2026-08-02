@@ -7,6 +7,7 @@
   "format": {
     "choose": "🎯 Ką atsisiųsti?",
     "choose_quality": "📊 Kokios kokybės?",
+    "playlist_warning": "🎞 Ši nuoroda panaši į grojaraštį arba kanalą — bus atsiųstas tik pirmas elementas.",
     "button_video": "🎬 Vaizdas",
     "button_audio": "🎵 Garsas",
     "button_both": "🎬+🎵 Abu",

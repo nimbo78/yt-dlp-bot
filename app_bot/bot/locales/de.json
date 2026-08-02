@@ -7,6 +7,7 @@
   "format": {
     "choose": "🎯 Was soll heruntergeladen werden?",
     "choose_quality": "📊 In welcher Qualität?",
+    "playlist_warning": "🎞 Dieser Link sieht nach einer Playlist oder einem Kanal aus — es wird nur der erste Eintrag geladen.",
     "button_video": "🎬 Video",
     "button_audio": "🎵 Audio",
     "button_both": "🎬+🎵 Beides",

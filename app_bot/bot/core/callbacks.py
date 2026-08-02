@@ -21,6 +21,7 @@ from bot.core.keyboards import (
     build_quality_keyboard,
 )
 from bot.core.pending_downloads import PendingDownload, generate_url_id
+from bot.core.playlists import is_collection_link
 from bot.core.schemas import UserSchema
 from bot.core.utils import bold, can_remove_url_params, get_user_id
 
@@ -130,9 +131,18 @@ class TelegramCallback:
         else:
             processed_url = url
 
+        # The worker downloads one item and says nothing about the rest, so a
+        # link to a collection has to say it here — before a format is chosen,
+        # while the person is still looking at the message.
+        warning = (
+            f'\n\n{t("format.playlist_warning", language)}'
+            if is_collection_link(url)
+            else ''
+        )
+
         # Send message with format selection keyboard
         ack_message = await message.reply(
-            text=f'{t("format.choose", language)}\n\n<code>{url}</code>',
+            text=f'{t("format.choose", language)}\n\n<code>{url}</code>{warning}',
             parse_mode=ParseMode.HTML,
             reply_to_message_id=message.id,
             reply_markup=build_media_type_keyboard(

@@ -7,6 +7,7 @@
   "format": {
     "choose": "🎯 Ko lejupielādēt?",
     "choose_quality": "📊 Kādā kvalitātē?",
+    "playlist_warning": "🎞 Šī saite izskatās pēc atskaņošanas saraksta vai kanāla — tiks lejupielādēts tikai pirmais vienums.",
     "button_video": "🎬 Video",
     "button_audio": "🎵 Audio",
     "button_both": "🎬+🎵 Abus",

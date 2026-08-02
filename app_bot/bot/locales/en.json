@@ -7,6 +7,7 @@
   "format": {
     "choose": "🎯 What should I download?",
     "choose_quality": "📊 Which quality?",
+    "playlist_warning": "🎞 This link looks like a playlist or a channel — only the first item will be downloaded.",
     "button_video": "🎬 Video",
     "button_audio": "🎵 Audio",
     "button_both": "🎬+🎵 Both",

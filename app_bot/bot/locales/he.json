@@ -7,6 +7,7 @@
   "format": {
     "choose": "🎯 מה להוריד?",
     "choose_quality": "📊 באיזו איכות?",
+    "playlist_warning": "🎞 הקישור נראה כמו פלייליסט או ערוץ — יורד רק הפריט הראשון.",
     "button_video": "🎬 וידאו",
     "button_audio": "🎵 אודיו",
     "button_both": "🎬+🎵 שניהם",

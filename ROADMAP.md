@@ -13,7 +13,7 @@ time of writing, and the file references say where.
 
 ### Tests and CI
 
-246 tests across the three packages, green, plus `.github/workflows/ci.yml`
+400 tests across the four packages, green, plus `.github/workflows/ci.yml`
 running `ruff check` and `pytest` on push and pull request. Two deviations from
 the plan below, both deliberate:
 
@@ -37,6 +37,20 @@ Two real bugs surfaced while writing the tests, both now fixed:
 - `ytdlp_logger.last_error()` raised `IndexError` on an empty message, *while
   already reporting a failed download*, replacing the real reason with a
   traceback about the reporting itself.
+
+The workflow later went red twice for reasons that had nothing to do with the
+commits that triggered it, and both are now closed:
+
+- **Pillow was missing from the install list.** The tests do not import it, but
+  `yt_shared.schemas.media` does at module level, and `Chapter` lives there — so
+  collecting `test_chapters.py` failed outright.
+- **ruff was installed as `>=0.9`**, meaning whatever came out most recently.
+  0.16 stabilised three preview rules and 185 findings appeared in an untouched
+  tree. It is now pinned exactly; the library entries are still floors, because
+  a new pytest does not invent new opinions and a new linter does. Moving the
+  pin is a commit, with whatever the new release wants fixed in the same one —
+  and rules that graduate into a release are listed in the root `pyproject.toml`
+  with the reason they are not wanted here.
 
 ### Bearer token for the HTTP API
 
@@ -173,6 +187,32 @@ The expiry decision sits in `PendingDownloads` rather than in the store — the
 first cut had the store compare against the cutoff, which put the only
 interesting logic somewhere it could not be tested without a database.
 
+### A playlist link says it is one
+
+`--no-playlist --playlist-items 1:1` means a link to a playlist, an album or a
+channel produced exactly one file and said nothing about the rest — the worst
+shape a wrong answer can take, because it looks like a success. Paste a
+40-track album, get one track, and nothing on screen tells you which of the two
+happened.
+
+The format-selection message now carries a line saying so, for YouTube
+playlists, channels and handles, SoundCloud sets, artist pages and tabs, Vimeo
+albums, channels, showcases and groups, and Bandcamp albums and artist pages.
+
+Detection is from the URL alone. Asking yt-dlp would be exact but costs a round
+trip per pasted link before a format has even been chosen, and on YouTube that
+is the request that draws the bot check.
+
+`watch?v=…&list=…` is deliberately *not* flagged: that is what copying the
+address bar during a playlist gives you, `--no-playlist` treats it as the one
+video, and warning about it would put a notice on most YouTube links anyone
+sends. The two mistakes do not cost the same — a missed collection leaves the
+behaviour this fork has always had, a false positive nags on an everyday link —
+so unrecognised hosts are answered "not a collection" and the tests are
+exhaustive on the single-item side.
+
+This is the honest minimum, not playlist support; see the backlog for the rest.
+
 ---
 
 ## Queued
@@ -219,13 +259,17 @@ suite deliberately does not cross for a one-line control-flow fix.
 When there is more than one client with different rights. The bearer token
 above covers the actual need for a self-hosted deployment.
 
-### Playlists
+### Playlists, actually downloading them
 
-`--no-playlist --playlist-items 1:1` in `app_worker/ytdl_opts/default.py` means
-a playlist link silently yields only the first video, with no warning. The
-minimum honest step is to detect a playlist and say so. Full support needs a
-choice or a filter — "download all 200" is not a feature on this hardware — plus
-progress across several tasks, limits and cancellation.
+Saying so is done (above); doing it is not. The obstacle is not the yt-dlp
+options, it is the pipeline: a task carries one `DownMedia`, the worker's
+validators want paths that exist, and the bot renders progress for a single
+file. Several items means several tasks, progress across them, a limit, and a
+way to stop halfway — "download all 200" is not a feature on this hardware.
+
+Worth doing only with a bound the user picks, something like "the first 10",
+and worth pricing before starting: it touches the worker, the task model, the
+upload path and the keyboard, which is more than any item shipped so far.
 
 ---
 
