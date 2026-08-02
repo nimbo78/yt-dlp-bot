@@ -9,9 +9,10 @@ from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from yt_shared.constants import SHARED_ASYNC_LOCK
-from yt_shared.enums import TaskStatus
+from yt_shared.enums import DownMediaType, TaskStatus, VideoQuality
 from yt_shared.models import Cache, File, Task
 from yt_shared.schemas.cache import CacheSchema
+from yt_shared.schemas.file_cache import CachedFile
 from yt_shared.schemas.media import BaseMedia, InbMediaPayload, Video
 
 if TYPE_CHECKING:
@@ -39,6 +40,8 @@ class TaskRepository:
             id=media_payload.id,
             url=media_payload.url,
             source=media_payload.source,
+            download_media_type=media_payload.download_media_type,
+            video_quality=media_payload.video_quality,
             from_user_id=media_payload.from_user_id,
             message_id=media_payload.message_id,
             added_at=media_payload.added_at,
@@ -46,6 +49,55 @@ class TaskRepository:
         self._db.add(task)
         await self._db.commit()
         return task
+
+    async def find_cached_files(
+        self,
+        url: str,
+        download_media_type: DownMediaType,
+        video_quality: VideoQuality,
+    ) -> list[CachedFile]:
+        """Files Telegram already holds for exactly this request.
+
+        Matched on all three, because they are what the answer depends on: the
+        same link asked for as audio, or at a different quality, is a different
+        file. Only completed tasks are considered, and the most recent one wins
+        — an older attempt may have produced something worse.
+
+        Returns every file of that task, so a request for audio *and* video
+        comes back with both or is treated as a miss.
+        """
+        stmt = (
+            select(Task)
+            .options(joinedload(Task.files).joinedload(File.cache))
+            .where(
+                Task.url == url,
+                Task.download_media_type == download_media_type,
+                Task.video_quality == video_quality,
+                Task.status == TaskStatus.DONE,
+            )
+            .order_by(desc(Task.created))
+        )
+        result = await self._db.execute(stmt)
+        for task in result.unique().scalars():
+            cached = [
+                CachedFile(
+                    file_id=file.cache.cache_id,
+                    file_type=file.file_type,
+                    title=file.title,
+                    filename=file.name,
+                    duration=file.duration,
+                    width=file.width,
+                    height=file.height,
+                    file_size=file.cache.file_size,
+                )
+                for file in task.files
+                if file.cache is not None and file.file_type is not None
+            ]
+            if len(cached) == len(task.files) and cached:
+                return cached
+            # A partial hit is a miss: sending half of what was asked for is
+            # worse than downloading again.
+        return []
 
     async def save_file_cache(self, file_id: str | UUID, cache: CacheSchema) -> None:
         stmt = insert(Cache).values(
@@ -60,6 +112,7 @@ class TaskRepository:
 
     async def save_file(self, task: Task, media: BaseMedia, meta: dict) -> File:
         file = File(
+            file_type=media.file_type,
             title=media.title,
             name=media.current_filename,
             duration=media.duration,

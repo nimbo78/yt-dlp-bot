@@ -89,11 +89,7 @@ class SuccessDownloadHandler(AbstractDownloadHandler):
             return False
 
         user = self._bot.allowed_users.get(self._get_sender_id())
-        if user is None:
-            return False
-        if user.delete_source_message is not None:
-            return user.delete_source_message
-        return self._bot.conf.telegram.delete_source_message
+        return self._bot.wants_source_message_deleted(user)
 
     async def _set_upload_message(self, media_object: BaseMedia) -> None:
         if not (self._body.from_chat_id and self._body.context.ack_message_id):

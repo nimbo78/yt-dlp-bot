@@ -99,6 +99,16 @@ class BotLauncher:
 
         self._bot.add_handler(
             MessageHandler(
+                cb.on_nocache,
+                filters=(
+                    filters.command('nocache')
+                    & (filters.user(allowed_users) | filters.chat(allowed_users))
+                ),
+            )
+        )
+
+        self._bot.add_handler(
+            MessageHandler(
                 cb.on_message,
                 filters=(
                     filters.regex(self.REGEX_NOT_START_WITH_SLASH)

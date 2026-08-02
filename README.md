@@ -33,6 +33,8 @@ back — no browser, no desktop app, no files left on someone else's server.
   and audio arrives tagged with its artist and track.
 - **Chapters you can jump to** — when the source has them, the timestamps come
   along and Telegram seeks the file when you tap one.
+- **The same link twice costs nothing** — Telegram already holds the file, so a
+  repeat request is answered instantly instead of downloaded again.
 - **Readable failures** — a suspended account, a private video or an expired
   cookie is explained in a sentence instead of a stack trace.
 - **Speaks fifteen languages** — set one for everyone, or a different one per
@@ -108,6 +110,9 @@ Anyone allowed in the config can paste links. Admins get the rest:
 | `/config set <path> <value>` | Change a value, e.g. `/config set telegram.max_upload_tasks 5` |
 | `/reloadconfig` | Re-read `config.yml` from disk |
 | `/restartbot` | Restart the bot; Docker brings it back |
+
+Anyone allowed may also use `/nocache <url>` to download a link again, ignoring
+the copy Telegram already holds.
 
 Changes are written to `config.yml` and survive a restart.
 
@@ -236,6 +241,17 @@ translation exists the original is returned unchanged. This applies to YouTube;
 other sites decide for themselves.
 
 **Logging.** `LOG_LEVEL` in `envs/common.env`.
+
+**Repeat downloads.** When the same link is asked for at the same media type
+and quality, the file Telegram is already storing is sent back instead of being
+downloaded again — no traffic, no CPU, no disk, no wait. The status message says
+so before the file arrives, and nothing is left in the chat to say it afterwards.
+
+The cache is only ever an optimisation: if Telegram no longer accepts the stored
+id, the download proceeds as normal. It is skipped for a user with
+`save_to_storage` on, since the point of that setting is a file on disk and a
+cache hit produces none. `/nocache <url>` forces a fresh download when a stored
+copy is stale.
 
 **A quiet start.** When the bot comes up it posts one message — a greeting, with
 the yt-dlp version appended to it once that check finishes — to admins who kept

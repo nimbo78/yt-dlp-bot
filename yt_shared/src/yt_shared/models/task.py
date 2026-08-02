@@ -9,7 +9,13 @@ from sqlalchemy.orm import relationship, validates
 from sqlalchemy_utils import Timestamp, UUIDType
 
 from yt_shared.db.session import Base
-from yt_shared.enums import TaskSource, TaskStatus
+from yt_shared.enums import (
+    DownMediaType,
+    MediaFileType,
+    TaskSource,
+    TaskStatus,
+    VideoQuality,
+)
 from yt_shared.models.yt_dlp import YTDLP
 
 
@@ -24,6 +30,11 @@ class Task(Base, Timestamp):
     )
     url = sa.Column(sa.String, nullable=False)
     source = sa.Column(sa.Enum(TaskSource), nullable=False, index=True)
+    # What was asked for. Needed to match a repeat request to a cached file:
+    # the same link at 1080p and at 720p are different answers. Nullable
+    # because rows written before this existed cannot be given one.
+    download_media_type = sa.Column(sa.Enum(DownMediaType), nullable=True)
+    video_quality = sa.Column(sa.Enum(VideoQuality), nullable=True)
     files = relationship('File', backref='task', cascade='all, delete-orphan')
     added_at = sa.Column(sa.DateTime, nullable=False)
     from_user_id = sa.Column(sa.BigInteger, nullable=True)
@@ -43,10 +54,14 @@ class Task(Base, Timestamp):
 
 
 task_created_at_index = Index('task_created_at_idx', Task.created)
+task_cache_lookup_index = Index(
+    'task_cache_lookup_idx', Task.url, Task.download_media_type
+)
 
 
 class File(Base, Timestamp):
     id = sa.Column(UUIDType(binary=False), primary_key=True, default=uuid.uuid4)
+    file_type = sa.Column(sa.Enum(MediaFileType), nullable=True)
     title = sa.Column(sa.String, nullable=True)
     name = sa.Column(sa.String, nullable=True)
     thumb_name = sa.Column(sa.String, nullable=True)

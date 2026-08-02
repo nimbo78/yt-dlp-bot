@@ -8,6 +8,8 @@ from pyrogram import Client
 from pyrogram.enums import ParseMode
 from pyrogram.errors import RPCError
 
+from bot.core.file_cache import CachedDelivery
+from bot.core.file_cache_store import PostgresFileCacheStore
 from bot.core.i18n import t
 from bot.core.schemas import ConfigSchema, UserSchema
 from bot.core.startup_message_store import PostgresStartupMessageStore
@@ -18,6 +20,9 @@ class VideoBotClient(Client):
     """Extended Pyrogram's `Client` class."""
 
     _RUN_FOREVER_SLEEP_SECONDS: int = 86400
+    # For captions built from titles and links, which are text and not markup.
+    # Exposed here so the modules that build them need not import Pyrogram.
+    PLAIN_CAPTION: ParseMode = ParseMode.DISABLED
 
     def __init__(self, *args, conf: ConfigSchema, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -28,6 +33,7 @@ class VideoBotClient(Client):
         self.allowed_users: dict[int, UserSchema] = {}
         self.admin_users: dict[int, UserSchema] = {}
         self.startup_notice = StartupNotice(self, PostgresStartupMessageStore())
+        self.cached_delivery = CachedDelivery(self, PostgresFileCacheStore())
 
         for user in self.conf.telegram.allowed_users:
             self.allowed_users[user.id] = user
@@ -53,6 +59,14 @@ class VideoBotClient(Client):
             if user is not None and user.lang_code:
                 return user.lang_code
         return self.conf.telegram.lang_code
+
+    def wants_source_message_deleted(self, user: UserSchema | None) -> bool:
+        """Decide whether to remove the link: the user's setting wins."""
+        if user is None:
+            return False
+        if user.delete_source_message is not None:
+            return user.delete_source_message
+        return self.conf.telegram.delete_source_message
 
     async def send_translated_to_users(
         self, key: str, user_ids: Iterable[int], **params: Any

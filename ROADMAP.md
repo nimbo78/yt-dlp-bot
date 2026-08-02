@@ -116,6 +116,38 @@ This is the one place the suite uses fakes. The pure-functions boundary was
 about not building machinery to reach trivial code; here the code deletes
 messages in people's chats, and the orchestration is the behaviour.
 
+### `file_id` cache
+
+The same link at the same media type and quality is answered from what Telegram
+already holds. Nothing had ever read those ids back, so a repeat was a full
+download for a byte-identical answer.
+
+Matching needed three columns that did not exist: `task.download_media_type`,
+`task.video_quality` and `file.file_type`. All nullable — rows written before
+the migration cannot be given an answer, and guessing one would hand somebody
+the wrong file. A partial hit is treated as a miss, so a request for audio *and*
+video never comes back with only half.
+
+Guarded in three places, because a wrong hit is the quiet kind of failure:
+
+- skipped entirely when `save_to_storage` is on, since that setting exists to
+  produce a file on disk and a cache hit produces none;
+- a store that cannot be read is a miss, not a failed download;
+- a refused id in the originating chat falls straight through to a real
+  download, because nothing has reached the person who asked yet. A refusal in
+  the forward group does not, since re-downloading would send them the file
+  twice.
+
+`/nocache <url>` forces a fresh download. The caption is built by a function
+shared with the upload path, so a cached answer reads exactly like the first
+one rather than subtly differently.
+
+The lookup lives in the bot, not the worker: the worker would have to
+reconstruct a `DownMedia` for files that are not on disk, and its validators
+require paths that exist. The trade is that a cache hit records no task row, so
+it does not appear in `/v1/tasks` — nothing was downloaded, but the history is
+not complete either.
+
 ---
 
 ## Queued
@@ -156,31 +188,6 @@ suite deliberately does not cross for a one-line control-flow fix.
 ---
 
 ## Backlog
-
-### `file_id` cache — the largest single win
-
-`cache_id`, `cache_unique_id`, the model and `save_file_cache()` all exist and
-are written on every upload. **Nothing ever reads them**, so the same URL sent
-twice downloads from scratch.
-
-- `file_id` survives deletion of the message that carried it, which matters here
-  because the status message and often the source message are deleted.
-- It is bound to the bot token; changing the token invalidates the cache.
-- It is not guaranteed permanent, so the design must be: try to send by
-  `file_id`, catch the failure, fall back to a normal download. The cache is an
-  optimisation, never a source of truth.
-- Key: URL + media type + quality. URL normalisation is the sharp edge —
-  `youtu.be/X`, `watch?v=X` and `?si=…` are one video and three keys.
-  `REMOVE_QUERY_PARAMS_HOSTS` covers part of it. A canonical extractor id would
-  be better but costs a network round trip, which on YouTube is the expensive
-  part.
-- Tell the user it was a cache hit, but leave no trace: a line in the status
-  message, which is deleted on success anyway, plus a toast on the button. Never
-  in the file caption — that is permanent. Provide a way to bypass, either a
-  "download again" button or `/nocache <url>`.
-
-Worth doing after the tests exist: a wrong cache hit is a quiet, embarrassing
-failure, and that is exactly the kind a test suite makes safe to work on.
 
 ### JWT for the API
 

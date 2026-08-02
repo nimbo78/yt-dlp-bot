@@ -19,6 +19,7 @@ from yt_shared.schemas.success import SuccessDownloadPayload
 from yt_shared.utils.tasks.abstract import AbstractTask
 from yt_shared.utils.tasks.tasks import create_task
 
+from bot.core.captions import build_video_caption_items
 from bot.core.chapters import format_chapters, group_into_messages
 from bot.core.config.config import get_main_config, settings
 from bot.core.progress import UploadProgressReporter
@@ -324,18 +325,13 @@ class VideoUploadTask(AbstractUploadTask):
         return self._users[0].upload.video_caption
 
     def _generate_caption_items(self) -> list[str]:
-        caption_items = []
-        caption_conf = self._get_caption_conf()
-
-        if caption_conf.include_title:
-            caption_items.append(self._media_object.title)
-        if caption_conf.include_filename:
-            caption_items.append(self._filename)
-        if caption_conf.include_link:
-            caption_items.append(self._ctx.context.url)
-        if caption_conf.include_size:
-            caption_items.append(self._media_object.file_size_human())
-        return caption_items
+        return build_video_caption_items(
+            self._get_caption_conf(),
+            title=self._media_object.title,
+            filename=self._filename,
+            url=self._ctx.context.url,
+            file_size=self._media_object.current_file_size(),
+        )
 
     def _generate_send_media_coroutine(self, chat_id: int) -> Coroutine:
         kwargs = {

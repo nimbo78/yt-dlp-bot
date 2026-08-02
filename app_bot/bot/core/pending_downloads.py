@@ -37,6 +37,8 @@ class PendingDownload:
     ack_message_id: int
     save_to_storage: bool
     user: UserSchema
+    # Set by /nocache, for when the stored copy is wrong or stale.
+    skip_cache: bool = False
     # Monotonic on purpose: a clock correction must not make an entry immortal
     # or expire every one of them at once.
     added_at: float = field(default_factory=time.monotonic)

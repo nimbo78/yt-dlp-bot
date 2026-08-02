@@ -62,10 +62,30 @@ class TelegramCallback:
             reply_to_message_id=message.id,
         )
 
-    async def on_message(self, client: VideoBotClient, message: Message) -> None:
+    async def on_nocache(self, client: VideoBotClient, message: Message) -> None:
+        """Handle /nocache <url>: download again, ignoring the stored copy."""
+        language = client.language_for(get_user_id(message), message.chat.id)
+        _, _, rest = message.text.partition(' ')
+        if not rest.strip():
+            await message.reply(
+                t('format.nocache_usage', language),
+                parse_mode=ParseMode.HTML,
+                reply_to_message_id=message.id,
+            )
+            return
+        await self.on_message(client, message, skip_cache=True, text=rest)
+
+    async def on_message(
+        self,
+        client: VideoBotClient,
+        message: Message,
+        *,
+        skip_cache: bool = False,
+        text: str | None = None,
+    ) -> None:
         """Receive video URL and show format selection keyboard."""
         self._log.debug('Received Telegram Message: %s', message)
-        text = message.text
+        text = text if text is not None else message.text
         if not text:
             self._log.debug('Forwarded message, skipping')
             return
@@ -84,11 +104,20 @@ class TelegramCallback:
         # Process each URL - show format selection keyboard
         for url in urls:
             await self._show_format_selection(
-                message=message, url=url, user=user, language=language
+                message=message,
+                url=url,
+                user=user,
+                language=language,
+                skip_cache=skip_cache,
             )
 
     async def _show_format_selection(
-        self, message: Message, url: str, user: UserSchema, language: str
+        self,
+        message: Message,
+        url: str,
+        user: UserSchema,
+        language: str,
+        skip_cache: bool = False,
     ) -> None:
         """Show inline keyboard for format selection."""
         from_user_id = message.from_user.id if message.from_user else None
@@ -124,6 +153,7 @@ class TelegramCallback:
             ack_message_id=ack_message.id,
             save_to_storage=user.save_to_storage,
             user=user,
+            skip_cache=skip_cache,
         )
         PendingDownloadsStore.add(url_id, pending)
 
@@ -140,14 +170,14 @@ class TelegramCallback:
         )
 
         if data.startswith(MEDIA_TYPE_PREFIX):
-            await self._handle_media_type_selection(callback_query, language)
+            await self._handle_media_type_selection(client, callback_query, language)
         elif data.startswith(DOWNLOAD_PREFIX):
-            await self._handle_download_selection(callback_query, language)
+            await self._handle_download_selection(client, callback_query, language)
         elif data.startswith(CANCEL_PREFIX):
             await self._handle_cancel(callback_query, language)
 
     async def _handle_media_type_selection(
-        self, callback_query: CallbackQuery, language: str
+        self, client: VideoBotClient, callback_query: CallbackQuery, language: str
     ) -> None:
         """Handle media type selection (Video/Audio/Both)."""
         data = callback_query.data.removeprefix(MEDIA_TYPE_PREFIX)
@@ -193,6 +223,7 @@ class TelegramCallback:
         # For audio, directly start download
         if media_type == DownMediaType.AUDIO:
             await self._start_download(
+                client=client,
                 callback_query=callback_query,
                 url_id=url_id,
                 media_type=media_type,
@@ -213,7 +244,7 @@ class TelegramCallback:
         await callback_query.answer()
 
     async def _handle_download_selection(
-        self, callback_query: CallbackQuery, language: str
+        self, client: VideoBotClient, callback_query: CallbackQuery, language: str
     ) -> None:
         """Handle download with selected quality."""
         data = callback_query.data.removeprefix(DOWNLOAD_PREFIX)
@@ -233,6 +264,7 @@ class TelegramCallback:
             return
 
         await self._start_download(
+            client=client,
             callback_query=callback_query,
             url_id=url_id,
             media_type=media_type,
@@ -240,8 +272,9 @@ class TelegramCallback:
             language=language,
         )
 
-    async def _start_download(
+    async def _start_download(  # noqa: PLR0913
         self,
+        client: VideoBotClient,
         callback_query: CallbackQuery,
         url_id: str,
         media_type: DownMediaType,
@@ -263,14 +296,36 @@ class TelegramCallback:
             )
             quality_text = f' ({label})'
 
+        summary = (
+            f'{self._MEDIA_TYPE_EMOJI.get(media_type, "")} '
+            f'{media_type.value}{quality_text}\n'
+            f'<code>{pending.original_url}</code>'
+        )
+
+        # Ask the cache first: the same link at the same quality is a file
+        # Telegram is already holding, and re-fetching it costs a full download.
+        cached = []
+        if not pending.skip_cache:
+            cached = await client.cached_delivery.find(
+                url=pending.url,
+                media_type=media_type,
+                quality=quality,
+                save_to_storage=pending.save_to_storage,
+            )
+
+        if cached:
+            await callback_query.message.edit_text(
+                text=f'{t("format.from_cache", language)}\n\n{summary}',
+                parse_mode=ParseMode.HTML,
+            )
+            await callback_query.answer(t('format.from_cache_toast', language))
+            if await self._deliver_cached(client, pending, cached):
+                return
+            # Telegram refused the stored id; carry on as an ordinary download.
+
         # Update message to show download started
         await callback_query.message.edit_text(
-            text=(
-                f'{t("format.started", language)}\n\n'
-                f'{self._MEDIA_TYPE_EMOJI.get(media_type, "")} '
-                f'{media_type.value}{quality_text}\n'
-                f'<code>{pending.original_url}</code>'
-            ),
+            text=f'{t("format.started", language)}\n\n{summary}',
             parse_mode=ParseMode.HTML,
         )
         await callback_query.answer(t('format.started_toast', language))
@@ -299,6 +354,47 @@ class TelegramCallback:
                 text=t('format.queue_failed', language),
                 parse_mode=ParseMode.HTML,
             )
+
+    async def _deliver_cached(
+        self,
+        client: VideoBotClient,
+        pending: PendingDownload,
+        cached: list,
+    ) -> bool:
+        """Send the stored copy and tidy up exactly as a real download would."""
+        delivered = await client.cached_delivery.send(
+            cached,
+            original_url=pending.original_url,
+            chat_id=pending.from_chat_id,
+            reply_to_message_id=pending.message_id,
+            user=pending.user,
+        )
+        if not delivered:
+            return False
+
+        # From here the chat should look the same as after a fresh download:
+        # the status message goes, and the link goes if that is configured.
+        for message_id, wanted in (
+            (pending.ack_message_id, True),
+            (
+                pending.message_id,
+                client.wants_source_message_deleted(pending.user),
+            ),
+        ):
+            if not wanted:
+                continue
+            try:
+                await client.delete_messages(
+                    chat_id=pending.from_chat_id, message_ids=message_id
+                )
+            except Exception as err:
+                self._log.warning(
+                    'Could not remove message %s in chat %s: %s',
+                    message_id,
+                    pending.from_chat_id,
+                    err,
+                )
+        return True
 
     async def _handle_cancel(
         self, callback_query: CallbackQuery, language: str
