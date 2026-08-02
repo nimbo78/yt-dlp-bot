@@ -374,22 +374,21 @@ about before you change them:
   The `-management` image also enables `rabbitmq_prometheus`, and nothing in
   this stack scrapes it. The UI on 15672 is unaffected.
 
-RabbitMQ also reports its **memory high watermark** at startup — by default 40%
-of host RAM, which it announces in its own log. That is the point at which it
-blocks publishers, not a limit on what it uses, so lowering it protects the host
-under load rather than freeing anything now. Set it from a measurement
-(`docker stats yt_rabbitmq`) rather than a guess: too low and the bot cannot
-queue a download at all. In `docker-compose.override.yml`:
+RabbitMQ's **memory high watermark** is set to 192 MiB in `rabbitmq/memory.conf`,
+down from the default 40% of host RAM. This is the point at which the broker
+blocks publishers to stop growing — not a limit on what it uses — so it protects
+the host under load rather than freeing anything at rest. The figure comes from
+a measurement: 70 MiB idle with three queues, and messages here are small JSON
+payloads. Below what the broker actually needs, the bot would hang trying to
+queue a download, so take your own reading before lowering it further:
 
-```yml
-services:
-  yt_rabbitmq:
-    volumes:
-      - "./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro"
-      - "./rabbitmq/memory.conf:/etc/rabbitmq/conf.d/20-memory.conf:ro"
+```bash
+docker stats --no-stream yt_rabbitmq
 ```
 
-with `vm_memory_high_watermark.absolute = 256MiB` in that file.
+On a larger host, raise it or use `vm_memory_high_watermark.relative = 0.4`
+instead. Whatever is in effect is announced on every boot — `Memory high
+watermark set to ...` in the RabbitMQ log.
 
 ## Cookies
 

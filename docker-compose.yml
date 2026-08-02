@@ -99,6 +99,9 @@ services:
     volumes:
       # Drops rabbitmq_prometheus, which nothing here scrapes. See the file.
       - "./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro"
+      # Where the broker starts blocking publishers. Sized from a measurement;
+      # the reasoning, and how to change it on a bigger host, are in the file.
+      - "./rabbitmq/memory.conf:/etc/rabbitmq/conf.d/20-memory.conf:ro"
   yt_redis:
     # Pinned to the 7 series on purpose. `redis:alpine` moved to Redis 8, which
     # bundles RedisBloom, RediSearch, RedisTimeSeries and ReJSON into the base
