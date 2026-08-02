@@ -210,6 +210,22 @@ end with an unlocked `uv pip install -e ./yt_shared`, so the image resolved
 here changed. Fixing the base annotation properly, and deciding what to do about
 the unlocked install, are both still open.
 
+The migration behind it was wrong too, and for a plainer reason: it had never
+been run. `c5f2a9d34e17` passed a `sa.Enum` to `op.create_table` for a type that
+the same migration had just created, and `create_table` re-emits `CREATE TYPE`
+from the table's before_create hook with `checkfirst` hard-coded to False — so
+Postgres refused the duplicate and the whole chain rolled back. The type is now
+declared `postgresql.ENUM(..., create_type=False)`. `add_column` fires no such
+hook, which is why `b3d81f5c6e04` gets away with a plain `sa.Enum` and why
+reading the two side by side suggests nothing is wrong.
+
+Verified since against a real PostgreSQL 16 rather than by reasoning: the full
+chain applies from an empty database to head, and downgrade-to-`50331b3c39bb`
+and back up runs twice in a row. The second pass is the interesting one — the
+downgrade deliberately leaves the shared enum behind, so it exercises the
+"type already exists" path that failed in production. Standing up a throwaway
+cluster costs about a minute and should be the rule for any future migration.
+
 ### A playlist link says it is one
 
 `--no-playlist --playlist-items 1:1` means a link to a playlist, an album or a

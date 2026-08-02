@@ -10,6 +10,7 @@ Create Date: 2026-08-02 22:55:00.000000
 """
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 from sqlalchemy_utils import UUIDType
 
 from alembic import op
@@ -20,8 +21,20 @@ down_revision = 'b3d81f5c6e04'
 branch_labels = None
 depends_on = None
 
-_CHAT_TYPE = sa.Enum(
-    'PRIVATE', 'BOT', 'GROUP', 'SUPERGROUP', 'CHANNEL', name='telegramchattype'
+# `create_type=False` matters. A plain `sa.Enum` passed to `create_table` makes
+# SQLAlchemy emit `CREATE TYPE` again from the table's before_create hook, with
+# `checkfirst` hard-coded to False — so the type gets created twice in the same
+# migration and Postgres refuses the second one. `add_column` fires no such
+# hook, which is why the migration before this one gets away with a plain
+# `sa.Enum`. The type is still created below, once, and only if missing.
+_CHAT_TYPE = postgresql.ENUM(
+    'PRIVATE',
+    'BOT',
+    'GROUP',
+    'SUPERGROUP',
+    'CHANNEL',
+    name='telegramchattype',
+    create_type=False,
 )
 
 
