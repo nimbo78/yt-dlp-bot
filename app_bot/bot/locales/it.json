@@ -99,6 +99,8 @@
     "network_hint": "La richiesta non è andata a buon fine. Di solito è temporaneo — riprova tra poco.",
     "no_media_title": "Non c'è nulla da scaricare",
     "no_media_hint": "Il link si apre, ma non contiene né video né audio.",
+    "no_space_title": "Spazio su disco insufficiente",
+    "no_space_hint": "Il server non ha spazio per questo download. Libera spazio o scegli una qualità inferiore.",
     "format_unavailable_title": "Qualità richiesta non disponibile",
     "format_unavailable_hint": "La qualità scelta non esiste per questo contenuto. Provane un'altra.",
     "rate_limited_title": "Troppe richieste",

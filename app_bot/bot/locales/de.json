@@ -99,6 +99,8 @@
     "network_hint": "Die Anfrage kam nicht zu Ende. Das ist meist vorübergehend — versuchen Sie es gleich noch einmal.",
     "no_media_title": "Nichts zum Herunterladen",
     "no_media_hint": "Der Link öffnet sich, aber es steckt weder Video noch Audio darin.",
+    "no_space_title": "Zu wenig Speicherplatz",
+    "no_space_hint": "Auf dem Server ist kein Platz für diesen Download. Schaffen Sie Platz oder wählen Sie eine niedrigere Qualität.",
     "format_unavailable_title": "Gewünschte Qualität nicht verfügbar",
     "format_unavailable_hint": "Die gewählte Qualität gibt es für diese Datei nicht. Nehmen Sie eine andere.",
     "rate_limited_title": "Zu viele Anfragen",

@@ -99,6 +99,8 @@
     "network_hint": "Užklausa nebuvo užbaigta. Paprastai tai laikina — pabandykite netrukus dar kartą.",
     "no_media_title": "Nėra ko atsisiųsti",
     "no_media_hint": "Nuoroda atsidaro, bet joje nėra nei vaizdo, nei garso.",
+    "no_space_title": "Nepakanka vietos diske",
+    "no_space_hint": "Serveryje nėra vietos šiam atsisiuntimui. Atlaisvinkite vietos arba pasirinkite prastesnę kokybę.",
     "format_unavailable_title": "Pasirinkta kokybė neprieinama",
     "format_unavailable_hint": "Šiam turiniui pasirinktos kokybės nėra. Pasirinkite kitą.",
     "rate_limited_title": "Per daug užklausų",

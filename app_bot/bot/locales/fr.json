@@ -99,6 +99,8 @@
     "network_hint": "La requête n'a pas abouti. C'est généralement passager — réessayez dans un instant.",
     "no_media_title": "Rien à télécharger",
     "no_media_hint": "Le lien s'ouvre, mais il ne contient ni vidéo ni audio.",
+    "no_space_title": "Espace disque insuffisant",
+    "no_space_hint": "Le serveur n’a pas la place pour ce téléchargement. Libérez de l’espace ou choisissez une qualité inférieure.",
     "format_unavailable_title": "Qualité demandée indisponible",
     "format_unavailable_hint": "La qualité choisie n'existe pas pour ce média. Prenez-en une autre.",
     "rate_limited_title": "Trop de requêtes",

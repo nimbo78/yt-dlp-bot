@@ -43,6 +43,10 @@ RECOGNISED = [
     ('not_found', 'ERROR: [generic] xyz: HTTP Error 404: Not Found'),
     ('forbidden', 'ERROR: unable to download video data: HTTP Error 403: Forbidden'),
     ('unavailable', 'ERROR: [youtube] dQw4: Video unavailable'),
+    # Ours, raised by the worker's free-space guard, and the kernel's, for when
+    # the disk fills anyway.
+    ('no_space', 'Not enough free space: 120.0MiB available, about 2.0GiB needed'),
+    ('no_space', 'ERROR: unable to write data: [Errno 28] No space left on device'),
 ]
 
 
@@ -102,6 +106,15 @@ class TestOrdering:
             'not supported and will not be supported.'
         )
         assert error.name == 'drm'
+
+    def test_running_out_of_space_is_not_the_site_s_fault(self) -> None:
+        """Several broader rules would claim this, and every one of them would
+        point the reader at the wrong thing."""
+        error = classify(
+            'ERROR: [youtube] dQw4: unable to write data: '
+            '[Errno 28] No space left on device'
+        )
+        assert error.name == 'no_space'
 
     def test_bot_check_is_a_cookie_problem(self) -> None:
         """Distinct from a plain age gate: this one is about the server's address."""

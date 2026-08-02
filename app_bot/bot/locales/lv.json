@@ -99,6 +99,8 @@
     "network_hint": "Pieprasījums netika pabeigts. Parasti tas ir īslaicīgi — mēģiniet vēlreiz pēc brīža.",
     "no_media_title": "Nav ko lejupielādēt",
     "no_media_hint": "Saite atveras, bet tajā nav ne video, ne audio.",
+    "no_space_title": "Nepietiek vietas diskā",
+    "no_space_hint": "Serverī nav vietas šai lejupielādei. Atbrīvojiet vietu vai izvēlieties zemāku kvalitāti.",
     "format_unavailable_title": "Izvēlētā kvalitāte nav pieejama",
     "format_unavailable_hint": "Šim saturam izvēlētā kvalitāte neeksistē. Izvēlieties citu.",
     "rate_limited_title": "Pārāk daudz pieprasījumu",

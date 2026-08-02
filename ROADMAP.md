@@ -55,107 +55,35 @@ closing them would break the Authorize button. Both noted in the README.
 which keeps Redis, RabbitMQ and the database out of a question that has nothing
 to do with them.
 
+### Free space check
+
+`MIN_FREE_SPACE_MB` in `envs/worker.env`, default 512. Two checks: a floor
+before anything starts, and a per-download one inside a yt-dlp progress hook,
+which is where the size first becomes known without paying for an extra request.
+
+The hook compares against `free + downloaded`, not `free` alone — the bytes
+already written came out of the same space, and counting them twice would abort
+a download that was going to fit.
+
+Raising from the hook aborts the download, and because the worker runs yt-dlp
+with `ignoreerrors` the message is collected by `YtdlpLogger` and travels the
+existing failure path. So the refusal reaches the user through the same
+classifier as everything else: a new `no_space` category, two keys across all 15
+locales, plus a pattern for the kernel's own `no space left on device` for when
+the disk fills anyway. Verified end to end against real yt-dlp, not only in unit
+tests.
+
+The plan said the size would come from `extract_info`; it does not. The worker
+runs `extract_info(download=True)`, so metadata and file arrive together and by
+then the space is already spent. A separate metadata call would have cost an
+extra round trip, which on YouTube is exactly the request that draws the bot
+check. The progress hook gets the same number for free.
+
 ---
 
 ## Queued
 
-### ~~1. Tests and CI~~ — done, see above
-
-### ~~2. Bearer token for the HTTP API~~ — done, see above
-
-**Why now.** There are no tests and no CI in the repository. Meanwhile the last
-few rounds of work added a layer of logic that is easy to break silently and
-tedious to check by hand — most of all the ordered regex table in
-`app_bot/bot/core/error_messages.py`, where correctness depends on the order of
-the tuple, not just its contents. Locale key and placeholder parity has been
-verified with throwaway scripts so far; that belongs in a test.
-
-**Layout.** Per package — `app_bot/tests/`, `app_worker/tests/`,
-`yt_shared/tests/`. Imports in this project are rooted at the package directory
-(`from bot.core...`) and `yt_shared` is installed editable, so per-package tests
-need no path juggling. A single root `tests/` would.
-
-**Tooling.** `pytest` as a dev dependency of each package. No `pytest-asyncio`
-in this round — nothing asynchronous is in scope.
-
-**Covered.** Pure functions only:
-
-| Module | Cases |
-| --- | --- |
-| `error_messages` | every one of the 19 categories against real yt-dlp strings; **ordering** specifically: DRM before everything, `private` before the broad `sign in`, the typographic apostrophe in `you're not a bot` |
-| `i18n` | key and placeholder parity across all 15 locales; English fallback; `has_message` for keys arriving from the worker |
-| `chapters` | `format_timestamp` past an hour; `group_into_messages` splitting only between lines, never mid-chapter |
-| `progress` | every stage; missing optional fields; an unknown `detail_key` |
-| `config_manager` | `_resolve_declared_type` through nested paths and `Optional`; `_convert_value` for bool, int, str |
-| `utils` | `split_telegram_message`, `can_remove_url_params` |
-
-**Not covered, deliberately.** Pyrogram handlers, RabbitMQ, the database.
-Reaching them needs fakes, and that is the boundary this round does not cross —
-which is also why no mocks are needed anywhere above: everything listed is a
-pure function.
-
-**CI.** `.github/workflows/ci.yml` running `ruff check` and `pytest` on push and
-pull request, Python 3.12, no Docker and no network.
-
-**Done when** the suite passes locally and in Actions, and a deliberate
-reordering of two `_PATTERNS` entries makes it fail.
-
----
-
-### 2. Bearer token for the HTTP API
-
-**Why now.** `docker-compose.yml` publishes `1984:8000` on every interface and
-the API has no authentication at all — the README says so outright. Anyone who
-reaches the port can queue downloads into the configured chats. This is a hole,
-not a feature, and it is small.
-
-**Behaviour.**
-
-- `API_TOKEN` read from `envs/api.local.env`.
-- Token empty: the service still starts, and the published port becomes
-  `127.0.0.1:1984:8000` so only the host can reach it.
-- Token set: a FastAPI dependency requires `Authorization: Bearer <token>`,
-  compared with `secrets.compare_digest`. Exposing the port beyond localhost is
-  then the operator's choice, made in `docker-compose.override.yml`.
-- `/status` stays open so health checks keep working. Everything else is closed.
-
-**Also.** Rewrite the README's HTTP API section, which currently advertises the
-absence of authentication as a fact of life.
-
-**Done when** an unauthenticated request to `/v1/tasks` returns 401, an
-authenticated one succeeds, and a default `docker compose up` leaves nothing
-listening beyond the host.
-
----
-
-### 3. Free space check before downloading
-
-**Why now.** The disk has filled twice. Today that is discovered when FFmpeg is
-already halfway through merging, which wastes the download and leaves debris.
-
-**Two stages, because one is not enough.**
-
-1. **Floor**, before anything starts: `shutil.disk_usage()` on
-   `TMP_DOWNLOAD_ROOT_PATH` against `MIN_FREE_SPACE_MB` from `envs/worker.env`.
-   Cheap, and catches "the disk is already full".
-2. **Per item**, after `extract_info`, where `filesize_approx` is already
-   available: roughly `3 × size` is needed — video, audio, and the merged
-   result — plus the floor. Catches "this particular video will not fit".
-
-**Refusal** goes through the machinery that already exists: a new `no_space`
-category in `FriendlyError`, with its emoji, title and explanation. This is the
-real cost of the item: **two new keys × 15 locales**.
-
-Add a pattern for `no space left on device` as well, so a failure that happens
-anyway — because the estimate was wrong or something else ate the disk
-meanwhile — is explained by the same category instead of a raw dump.
-
-**Done when** a download is refused with a readable message on a deliberately
-filled staging directory, and nothing is left behind.
-
----
-
-### 4. TTL for pending format choices
+### 1. TTL for pending format choices
 
 **Why now.** `PendingDownloadsStore` is a plain `ClassVar` dict
 (`app_bot/bot/core/pending_downloads.py`) with no eviction. Every link that was

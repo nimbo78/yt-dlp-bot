@@ -183,6 +183,14 @@ use 4 MB/s in total.
 **Parallel downloads.** `MAX_SIMULTANEOUS_DOWNLOADS` in `envs/worker.env`,
 default 2. Raise it with the temporary space above in mind.
 
+**Running out of room.** `MIN_FREE_SPACE_MB` in `envs/worker.env`, default 512,
+is kept free in the staging area. A download is refused outright when less than
+that is left, and again once yt-dlp reports a size that will not fit — a video
+and its audio arrive as separate streams and are merged into a third, so about
+three times the finished size has to be available. Either way the answer is a
+readable "not enough disk space" rather than a half-merged file and a full disk.
+`0` turns both checks off.
+
 **Thumbnails.** `yt-dlp` keeps the source cover when it matches the video's
 shape. Otherwise FFmpeg grabs a frame at `THUMBNAIL_FRAME_SECOND` seconds
 (`envs/worker.env`), or at the midpoint for shorter videos.

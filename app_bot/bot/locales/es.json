@@ -99,6 +99,8 @@
     "network_hint": "La petición no llegó a completarse. Suele ser algo pasajero — inténtalo en un momento.",
     "no_media_title": "No hay nada que descargar",
     "no_media_hint": "El enlace se abre, pero no contiene ni vídeo ni audio.",
+    "no_space_title": "No hay espacio suficiente en el disco",
+    "no_space_hint": "El servidor no tiene sitio para esta descarga. Libera espacio o elige una calidad menor.",
     "format_unavailable_title": "La calidad pedida no está disponible",
     "format_unavailable_hint": "La calidad elegida no existe para este contenido. Prueba con otra.",
     "rate_limited_title": "Demasiadas peticiones",

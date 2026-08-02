@@ -99,6 +99,8 @@
     "network_hint": "The request never completed. This is usually temporary — try again shortly.",
     "no_media_title": "Nothing to download",
     "no_media_hint": "The link opens fine, but there is no video or audio in it to download.",
+    "no_space_title": "Not enough disk space",
+    "no_space_hint": "The server has no room for this download. Free some space, or pick a lower quality.",
     "format_unavailable_title": "Requested quality unavailable",
     "format_unavailable_hint": "The chosen quality does not exist for this media. Try another one.",
     "rate_limited_title": "Rate limited",

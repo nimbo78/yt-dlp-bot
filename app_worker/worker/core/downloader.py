@@ -14,6 +14,11 @@ from yt_shared.utils.file import file_size, list_files_human, remove_dir
 
 from worker.core.config import settings
 from worker.core.exceptions import MediaDownloaderError
+from worker.core.free_space import (
+    NotEnoughSpaceError,
+    ensure_floor,
+    make_space_guard,
+)
 from worker.core.ytdlp_logger import YtdlpLogger
 from ytdl_opts.per_host._base import AbstractHostConfig
 
@@ -98,6 +103,12 @@ class MediaDownloader:
             'Downloading %s, media_type %s, quality %s', url, media_type, video_quality
         )
         tmp_down_path = settings.TMP_DOWNLOAD_ROOT_PATH / settings.TMP_DOWNLOAD_DIR
+        floor_bytes = settings.MIN_FREE_SPACE_MB * 1024 * 1024
+        try:
+            ensure_floor(tmp_down_path, floor_bytes)
+        except NotEnoughSpaceError as err:
+            raise MediaDownloaderError(str(err)) from err
+
         with TemporaryDirectory(prefix='tmp_media_dir-', dir=tmp_down_path) as tmp_dir:
             curr_tmp_dir = tmp_down_path / tmp_dir
 
@@ -108,8 +119,12 @@ class MediaDownloader:
             )
 
             ytdl_opts = dict(ytdl_opts_model.ytdl_opts)
+            # The guard runs first: once yt-dlp reports a size, a download that
+            # cannot fit is stopped before it has written anything worth losing.
+            hooks = [make_space_guard(tmp_down_path, floor_bytes)]
             if progress_hook is not None:
-                ytdl_opts['progress_hooks'] = [progress_hook]
+                hooks.append(progress_hook)
+            ytdl_opts['progress_hooks'] = hooks
             if postprocessor_hook is not None:
                 ytdl_opts['postprocessor_hooks'] = [postprocessor_hook]
 

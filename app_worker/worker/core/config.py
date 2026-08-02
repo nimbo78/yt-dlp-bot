@@ -15,6 +15,9 @@ class WorkerSettings(CommonSettings):
     INSTAGRAM_ENCODE_TO_H264: bool
     FACEBOOK_ENCODE_TO_H264: bool
     MAX_DOWNLOAD_THREADS: str
+    # Refuse to start a download when less than this is free in the staging
+    # area, and keep it in reserve when sizing a download. 0 disables both.
+    MIN_FREE_SPACE_MB: int = 512
     DOWNLOAD_RATE_LIMIT: str = ''
     METADATA_LANGUAGE: str = ''
 

@@ -52,12 +52,17 @@ _UNSUPPORTED_URL = FriendlyError('🔗', 'unsupported_url')
 _NOT_FOUND = FriendlyError('🔍', 'not_found')
 _FORBIDDEN = FriendlyError('⛔', 'forbidden')
 _UNAVAILABLE = FriendlyError('❓', 'unavailable')
+_NO_SPACE = FriendlyError('💾', 'no_space')
 
 # Ordered from most to least specific: the first match wins, so narrow patterns
 # such as "sign in to confirm your age" must be tried before the broad ones.
 _PATTERNS: Final[tuple[tuple[re.Pattern[str], FriendlyError], ...]] = tuple(
     (re.compile(pattern, re.IGNORECASE), error)
     for pattern, error in (
+        # Ours, and the kernel's. First, because it is about this server rather
+        # than the site, and several of the broader rules below would claim it.
+        (r'not enough free space|no space left on device'
+         r'|insufficient (?:disk )?space', _NO_SPACE),
         # Refusals yt-dlp issues on principle, before it even looks at the URL.
         (r'known to use drm|drm protection|drm[- ]protected', _DRM),
         (r'primarily used for piracy|not supported and will not be supported'
