@@ -4,16 +4,16 @@ import logging
 import os
 import shutil
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, get_args
 
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
-from ruamel.yaml.scalarstring import ScalarString
 from ruamel.yaml.scalarbool import ScalarBoolean
-from ruamel.yaml.scalarint import ScalarInt
 from ruamel.yaml.scalarfloat import ScalarFloat
+from ruamel.yaml.scalarint import ScalarInt
+from ruamel.yaml.scalarstring import ScalarString
 
 from bot.core.exceptions import (
     CannotDeleteAdminError,
@@ -51,7 +51,7 @@ class ConfigManager:
             return None
 
         self._backup_dir.mkdir(exist_ok=True)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now(UTC).strftime('%Y%m%d_%H%M%S')
         backup_path = self._backup_dir / f'config_{timestamp}.yml'
         shutil.copy2(self._config_path, backup_path)
         self._log.info('Created config backup: %s', backup_path)
@@ -85,26 +85,26 @@ class ConfigManager:
             os.fsync(f.fileno())
         self._log.info('Config saved to %s', self._config_path)
 
-    def _to_plain_python(self, obj: Any) -> Any:
+    def _to_plain_python(self, obj: Any) -> Any:  # noqa: PLR0911
         """Convert ruamel.yaml objects to plain Python types for Pydantic."""
         if isinstance(obj, CommentedMap):
             return {k: self._to_plain_python(v) for k, v in obj.items()}
-        elif isinstance(obj, CommentedSeq):
+        if isinstance(obj, CommentedSeq):
             return [self._to_plain_python(item) for item in obj]
-        elif isinstance(obj, ScalarBoolean):
+        if isinstance(obj, ScalarBoolean):
             return bool(obj)
-        elif isinstance(obj, ScalarInt):
+        if isinstance(obj, ScalarInt):
             return int(obj)
-        elif isinstance(obj, ScalarFloat):
+        if isinstance(obj, ScalarFloat):
             return float(obj)
-        elif isinstance(obj, ScalarString):
+        if isinstance(obj, ScalarString):
             return str(obj)
-        elif hasattr(obj, 'value'):
+        if hasattr(obj, 'value'):
             # Handle TaggedScalar and other tagged values
             return obj.value
-        elif isinstance(obj, Mapping):
+        if isinstance(obj, Mapping):
             return {k: self._to_plain_python(v) for k, v in obj.items()}
-        elif isinstance(obj, Sequence) and not isinstance(obj, str):
+        if isinstance(obj, Sequence) and not isinstance(obj, str):
             return [self._to_plain_python(item) for item in obj]
         return obj
 
@@ -299,16 +299,16 @@ class ConfigManager:
         else:
             target_type = type(self._to_plain_python(old_value))
 
-        if target_type == bool:
+        if target_type is bool:
             return value.lower() in ('true', '1', 'yes', 'on')
-        elif target_type == int:
+        if target_type is int:
             return int(value)
-        elif target_type == float:
+        if target_type is float:
             return float(value)
-        elif target_type == str:
-            return value
-        else:
-            return value
+        # Strings, and anything whose type we could not work out, are written
+        # back as typed. Validation runs before the file is saved, so a value
+        # the schema will not accept is refused rather than stored.
+        return value
 
     def list_users(self, bot: 'VideoBotClient') -> list[dict]:
         """Get list of all users with their basic info."""

@@ -1,8 +1,13 @@
+from typing import TYPE_CHECKING
+
 from yt_shared.rabbit.rabbit_config import PROGRESS_QUEUE
 from yt_shared.schemas.progress import ProgressPayload
 
 from bot.core.handlers.progress import ProgressHandler
 from bot.core.workers.abstract import AbstractDownloadResultWorker, RabbitWorkerType
+
+if TYPE_CHECKING:
+    from bot.bot.client import VideoBotClient
 
 
 class ProgressWorker(AbstractDownloadResultWorker):
@@ -16,7 +21,7 @@ class ProgressWorker(AbstractDownloadResultWorker):
     QUEUE_TYPE = PROGRESS_QUEUE
     SCHEMA_CLS = (ProgressPayload,)
 
-    def __init__(self, bot) -> None:
+    def __init__(self, bot: 'VideoBotClient') -> None:
         super().__init__(bot)
         self._handler = ProgressHandler(bot=bot)
 

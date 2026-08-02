@@ -70,7 +70,7 @@ _PATTERNS: Final[tuple[tuple[re.Pattern[str], FriendlyError], ...]] = tuple(
          r'|blocked it in your country|available from your location', _GEO_BLOCKED),
         # Checked before the broad "private" rule: these say "sign in" too.
         # yt-dlp writes some of these with a typographic apostrophe.
-        (r"confirm you['’]re not a bot|cookies are no longer valid"
+        (r"confirm you['’]re not a bot|cookies are no longer valid"  # noqa: RUF001
          r'|use --cookies', _LOGIN_REQUIRED),
         # "Private video. Sign in if you've been granted access" must not be
         # mistaken for a plain authentication problem.
@@ -82,8 +82,10 @@ _PATTERNS: Final[tuple[tuple[re.Pattern[str], FriendlyError], ...]] = tuple(
          r'|\bsign in\b|\blog in\b', _LOGIN_REQUIRED),
         # "No video in this post" is a different problem from "the formats I
         # asked for are missing", so it is matched first.
-        (r'no video could be found|there ?i?s no video|no media could be found'
-         r'|no media found|unable to find media', _NO_MEDIA),
+        # "There's no video in this tweet" is the common phrasing, with either
+        # kind of apostrophe, so the contraction has to be matched too.
+        (r"no video could be found|there(?: i|['’])?s no video"  # noqa: RUF001
+         r'|no media could be found|no media found|unable to find media', _NO_MEDIA),
         (r'requested format is not available|no video formats found'
          r'|requested format not available', _FORMAT_UNAVAILABLE),
         (r'too many requests|rate[- ]?limit|http error 429', _RATE_LIMITED),

@@ -53,7 +53,7 @@ class EncodeToH264Task(AbstractFfBinaryTask):
         if not proc:
             return
 
-        stdout, stderr = await self._get_stdout_stderr(proc)
+        _stdout, stderr = await self._get_stdout_stderr(proc)
         self._log.info(
             'Process %s returncode: %d, stderr: %s', cmd, proc.returncode, stderr
         )

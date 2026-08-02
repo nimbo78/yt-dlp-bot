@@ -61,7 +61,10 @@ class YtdlpLogger:
         """
         reported = [msg for msg in self.errors if msg.startswith(_ERROR_PREFIX)]
         for msg in reversed(reported or self.errors):
-            reason = msg.removeprefix(_ERROR_PREFIX).splitlines()[0].strip()
+            # partition rather than splitlines: an empty message yields an empty
+            # list, and indexing it would raise while we are already reporting a
+            # failure — hiding the reason behind an IndexError.
+            reason = msg.removeprefix(_ERROR_PREFIX).partition('\n')[0].strip()
             if reason and not reason.startswith(_TRACEBACK_MARKERS):
                 return reason
         return None

@@ -8,7 +8,6 @@ from yt_shared.enums import DownMediaType, VideoQuality
 
 from worker.utils import cli_to_api
 
-
 # Quality to yt-dlp format mapping
 QUALITY_FORMAT_MAP: dict[VideoQuality, str] = {
     VideoQuality.BEST: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',

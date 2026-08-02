@@ -82,7 +82,7 @@ class SuccessDownloadHandler(AbstractDownloadHandler):
             )
 
     def _wants_source_message_deleted(self) -> bool:
-        """A user's own setting wins; otherwise the global default applies."""
+        """Decide whether to delete it: the user's own setting wins, else the default."""
         if not (self._body.from_chat_id and self._body.message_id):
             return False
         if self._body.context.source is TaskSource.API:

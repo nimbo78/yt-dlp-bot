@@ -84,7 +84,7 @@ class PostgreSQLService(BaseService, metaclass=ServiceRegistry):
 
 async def is_port_open(host: str, port: int) -> bool:
     try:
-        reader, writer = await asyncio.open_connection(host, port)
+        _reader, writer = await asyncio.open_connection(host, port)
         writer.close()
         await writer.wait_closed()
     except Exception:

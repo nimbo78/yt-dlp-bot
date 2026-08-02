@@ -8,9 +8,33 @@ src = [
     "app_worker"
 ]
 required-version = ">=0.9"
+extend-exclude = [
+    # One-off tooling that generates README artwork, not part of any service.
+    "assets/readme/source",
+]
 
 [tool.ruff.lint.flake8-quotes]
 inline-quotes = "single"
+
+[tool.ruff.lint.per-file-ignores]
+# Test code is held to different conventions than the code it exercises:
+# asserting is the point, reaching into a module's internals is often the only
+# way to pin behaviour down, and a literal in a table of cases is clearer named
+# than not.
+"**/tests/**" = [
+    "ANN001",   # fixtures and parameters are typed where it helps, not everywhere
+    "D205",
+    "D209",
+    "D404",
+    "FBT003",   # a boolean argument in a table of cases reads fine
+    "PLC0415",  # a local import keeps a single test's dependency where it is used
+    "PLR2004",  # the literals are the cases
+    "PT011",    # broad `pytest.raises` where the message is asserted separately
+    "PT018",    # a composite assertion is sometimes the clearest one
+    "RUF001",   # yt-dlp writes typographic apostrophes; the samples must too
+    "S101",     # assert
+    "SLF001",   # private members are exactly what several of these pin down
+]
 
 [tool.ruff.lint]
 select = ["ALL"]

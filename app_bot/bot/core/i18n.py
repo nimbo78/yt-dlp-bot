@@ -35,6 +35,8 @@ LANGUAGES: Final[tuple[str, ...]] = (
 FALLBACK_LANGUAGE: Final[str] = 'en'
 
 _LOCALES_DIR: Final[Path] = Path(__file__).parent.parent / 'locales'
+# Keys listed in a startup warning before it is cut short.
+_PREVIEW_KEYS: Final[int] = 10
 
 _log = logging.getLogger(__name__)
 
@@ -99,14 +101,16 @@ def report_catalogue_health() -> None:
             'Locale "%s" is missing %d key(s), English will be used for them: %s',
             language,
             len(keys),
-            ', '.join(keys[:10]) + ('…' if len(keys) > 10 else ''),
+            ', '.join(keys[:_PREVIEW_KEYS])
+            + ('…' if len(keys) > _PREVIEW_KEYS else ''),
         )
     for language, keys in unknown_keys().items():
         _log.warning(
             'Locale "%s" defines %d key(s) English does not: %s',
             language,
             len(keys),
-            ', '.join(keys[:10]) + ('…' if len(keys) > 10 else ''),
+            ', '.join(keys[:_PREVIEW_KEYS])
+            + ('…' if len(keys) > _PREVIEW_KEYS else ''),
         )
 
 

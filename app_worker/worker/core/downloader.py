@@ -206,7 +206,7 @@ class MediaDownloader:
         if not reason:
             return None
         # yt-dlp writes some of these with a typographic apostrophe.
-        normalised = reason.replace('’', "'").lower()
+        normalised = reason.replace('’', "'").lower()  # noqa: RUF001
         used_cookies = 'cookiefile' in ytdl_opts
 
         if used_cookies:

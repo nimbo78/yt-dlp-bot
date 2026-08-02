@@ -9,9 +9,40 @@ time of writing, and the file references say where.
 
 ---
 
+## Done
+
+### Tests and CI
+
+246 tests across the three packages, green, plus `.github/workflows/ci.yml`
+running `ruff check` and `pytest` on push and pull request. Two deviations from
+the plan below, both deliberate:
+
+- **`bot/core/utils.py` is not covered.** Importing it pulls in Pyrogram and the
+  whole config bootstrap for the sake of two small functions, which contradicts
+  "pure functions, fast, no fakes". Testing it properly means first separating
+  `split_telegram_message` and `can_remove_url_params` from `get_user_id`, which
+  is a refactor rather than a test. Left for whenever that module is next
+  touched.
+- **Ruff needed settling before CI could be green.** Test code is held to
+  different conventions than what it exercises, so `**/tests/**` carries
+  per-file ignores in the root `pyproject.toml`, the README asset generator is
+  excluded, and the ~30 findings in application code were fixed. A CI that is
+  red on arrival teaches everyone to ignore it.
+
+Two real bugs surfaced while writing the tests, both now fixed:
+
+- `error_messages` did not recognise **"There's no video in this tweet"** — the
+  apostrophe form, which is what X actually sends. The category existed and
+  simply never fired.
+- `ytdlp_logger.last_error()` raised `IndexError` on an empty message, *while
+  already reporting a failed download*, replacing the real reason with a
+  traceback about the reporting itself.
+
+---
+
 ## Queued
 
-### 1. Tests and CI
+### ~~1. Tests and CI~~ — done, see above
 
 **Why now.** There are no tests and no CI in the repository. Meanwhile the last
 few rounds of work added a layer of logic that is easy to break silently and

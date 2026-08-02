@@ -29,7 +29,7 @@ class WorkerSettings(CommonSettings):
     @field_validator('METADATA_LANGUAGE')
     @classmethod
     def validate_metadata_language(cls, value: str) -> str:
-        """A language tag such as `ru` or `pt-BR`; empty leaves the site default.
+        """Check the language tag, e.g. `ru` or `pt-BR`; empty keeps the default.
 
         Only the shape is checked here. Which tags a site actually offers is the
         site's business, and yt-dlp names the supported ones when it refuses.

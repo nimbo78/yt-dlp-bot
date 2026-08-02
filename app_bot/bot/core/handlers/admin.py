@@ -2,6 +2,7 @@
 
 import logging
 import sys
+from typing import Final
 
 from pyrogram.enums import ParseMode
 from pyrogram.types import Message
@@ -18,6 +19,11 @@ from bot.core.i18n import t
 
 class AdminCommandHandler:
     """Handles admin commands for bot configuration."""
+
+    # Word counts of a well-formed command, including the command itself.
+    _USER_COMMAND_WORDS: Final[int] = 2
+    _CONFIG_GET_WORDS: Final[int] = 3
+    _CONFIG_SET_WORDS: Final[int] = 4
 
     def __init__(self) -> None:
         self._log = logging.getLogger(self.__class__.__name__)
@@ -62,7 +68,7 @@ class AdminCommandHandler:
             return
 
         parts = message.text.split()
-        if len(parts) != 2:
+        if len(parts) != self._USER_COMMAND_WORDS:
             await self._reply_t(client, message, 'admin.adduser_usage')
             return
 
@@ -100,7 +106,7 @@ class AdminCommandHandler:
             return
 
         parts = message.text.split()
-        if len(parts) != 2:
+        if len(parts) != self._USER_COMMAND_WORDS:
             await self._reply_t(client, message, 'admin.deleteuser_usage')
             return
 
@@ -139,7 +145,7 @@ class AdminCommandHandler:
             return
 
         parts = message.text.split(maxsplit=3)
-        if len(parts) < 3:
+        if len(parts) < self._CONFIG_GET_WORDS:
             await self._reply_t(client, message, 'admin.config_usage')
             return
 
@@ -160,7 +166,7 @@ class AdminCommandHandler:
                 )
 
         elif action == 'set':
-            if len(parts) < 4:
+            if len(parts) < self._CONFIG_SET_WORDS:
                 await self._reply_t(client, message, 'admin.config_value_missing')
                 return
 

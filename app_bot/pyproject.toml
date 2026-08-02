@@ -11,3 +11,9 @@ dependencies = [
     "tenacity>=9.0.0",
     "tgcrypto-pyrofork>=1.2.7",
 ]
+
+[tool.pytest.ini_options]
+# Tests import the package the way the application does, and reach yt_shared
+# from the sibling directory the Dockerfile copies in.
+pythonpath = [".", "../yt_shared/src"]
+testpaths = ["tests"]

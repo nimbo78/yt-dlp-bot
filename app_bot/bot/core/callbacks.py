@@ -1,6 +1,7 @@
 import logging
+import re
 from itertools import product
-from typing import ClassVar
+from typing import ClassVar, Final
 from urllib.parse import urljoin, urlparse
 
 from pyrogram.enums import ParseMode
@@ -25,6 +26,11 @@ from bot.core.utils import bold, can_remove_url_params, get_user_id
 
 
 class TelegramCallback:
+    # Callback data is packed as colon-separated fields; a payload with the
+    # wrong number of them is from an older build and cannot be trusted.
+    _MEDIA_TYPE_FIELDS: Final[int] = 2
+    _DOWNLOAD_FIELDS: Final[int] = 3
+
     _QUALITY_LABELS: ClassVar[dict[VideoQuality, str]] = {
         VideoQuality.UHD_4K: '4K',
         VideoQuality.QHD_1440P: '1440p',
@@ -147,7 +153,7 @@ class TelegramCallback:
         data = callback_query.data.removeprefix(MEDIA_TYPE_PREFIX)
         parts = data.split(':')
 
-        if len(parts) != 2:
+        if len(parts) != self._MEDIA_TYPE_FIELDS:
             await callback_query.answer(t('format.invalid_selection', language))
             return
 
@@ -213,7 +219,7 @@ class TelegramCallback:
         data = callback_query.data.removeprefix(DOWNLOAD_PREFIX)
         parts = data.split(':')
 
-        if len(parts) != 3:
+        if len(parts) != self._DOWNLOAD_FIELDS:
             await callback_query.answer(t('format.invalid_selection', language))
             return
 
@@ -309,8 +315,6 @@ class TelegramCallback:
 
     def _filter_urls(self, urls: list[str], regexes: list[str]) -> list[str]:
         """Return valid urls."""
-        import re
-
         self._log.debug('Matching urls: %s against regexes %s', urls, regexes)
         valid_urls: list[str] = []
         for url, regex in product(urls, regexes):

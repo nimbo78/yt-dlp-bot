@@ -2,13 +2,16 @@
 
 import logging
 import time
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 from yt_shared.enums import ProgressStage
 from yt_shared.schemas.progress import ProgressPayload
 from yt_shared.utils.common import format_bytes
 
 from bot.core.i18n import has_message, t
+
+if TYPE_CHECKING:
+    from bot.bot.client import VideoBotClient
 
 _BAR_SEGMENTS: Final[int] = 10
 _BAR_FILLED: Final[str] = '▰'
@@ -111,7 +114,13 @@ def format_upload_progress(current: int, total: int, language: str) -> str:
 class UploadProgressReporter:
     """Throttled Pyrogram upload callback that refreshes a status message."""
 
-    def __init__(self, bot, chat_id: int, message_id: int, language: str) -> None:
+    def __init__(
+        self,
+        bot: 'VideoBotClient',
+        chat_id: int,
+        message_id: int,
+        language: str,
+    ) -> None:
         self._log = logging.getLogger(self.__class__.__name__)
         self._bot = bot
         self._chat_id = chat_id

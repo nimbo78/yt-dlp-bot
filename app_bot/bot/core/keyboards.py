@@ -5,7 +5,6 @@ from yt_shared.enums import DownMediaType, VideoQuality
 
 from bot.core.i18n import t
 
-
 # Callback data prefixes
 MEDIA_TYPE_PREFIX = 'mt:'
 QUALITY_PREFIX = 'q:'

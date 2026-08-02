@@ -60,7 +60,8 @@ class BaseMedia(StrictRealBaseModel, ABC):
     directory_path: Annotated[DirectoryPath, Field(strict=False)]
     file_size: int
     duration: float | None = None
-    chapters: list[Chapter] = []
+    # Pydantic copies field defaults per instance, so this is not shared state.
+    chapters: list[Chapter] = []  # noqa: RUF012
     orm_file_id: uuid.UUID | None = None
 
     saved_to_storage: bool = False

@@ -9,3 +9,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "yt-dlp>=2024.5.23.232707.dev0",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = [".", "../yt_shared/src"]
+testpaths = ["tests"]
