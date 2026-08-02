@@ -23,7 +23,10 @@ services:
         required: false
     restart: unless-stopped
     ports:
-      - "1984:8000"
+      # Bound to the host: the API queues downloads into your chats, and it
+      # is unauthenticated until API_TOKEN is set. Publish it more widely in
+      # docker-compose.override.yml once a token is in place.
+      - "127.0.0.1:1984:8000"
     command: bash -c "python start.py && python main.py"
     depends_on:
       - yt_postgres

@@ -23,6 +23,8 @@ inline-quotes = "single"
 # than not.
 "**/tests/**" = [
     "ANN001",   # fixtures and parameters are typed where it helps, not everywhere
+    "ARG001",   # a fixture requested only for its effect looks unused
+    "ARG002",
     "D205",
     "D209",
     "D404",

@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
@@ -9,6 +9,7 @@ from api.apps.healthcheck.routers.healthcheck import healthcheck_router
 from api.apps.video.routers import v1_router
 from api.common.constants import GZIP_MIN_SIZE
 from api.common.log import setup_logging
+from api.common.security import require_token, warn_if_unauthenticated
 from api.config import settings
 
 
@@ -17,8 +18,10 @@ def create_app() -> FastAPI:
     app_ = FastAPI(
         title='YT DLP BOT API', description='API for your downloaded videos', debug=True
     )
+    # The health check stays open so container health checks and uptime monitors
+    # do not need a credential; everything that touches tasks is behind a token.
     app_.include_router(healthcheck_router)
-    app_.include_router(v1_router)
+    app_.include_router(v1_router, dependencies=[Depends(require_token)])
     app_.add_middleware(GZipMiddleware, minimum_size=GZIP_MIN_SIZE)
     return app_
 
@@ -28,6 +31,7 @@ app = create_app()
 
 @app.on_event('startup')
 async def startup_event() -> None:
+    warn_if_unauthenticated()
     redis = aioredis.from_url(
         settings.REDIS_URL, encoding='utf8', decode_responses=True
     )

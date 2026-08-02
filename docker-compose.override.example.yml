@@ -24,6 +24,13 @@ services:
   #   mem_limit: 256m
   #   memswap_limit: 256m
 
+  # Reach the API from outside the host. Set API_TOKEN in envs/api.local.env
+  # first: without it the API accepts every request, and it can make the bot
+  # send files into your chats.
+  # yt_api:
+  #   ports:
+  #     - "1984:8000"
+
 # Size of the staging area for in-flight downloads. As shipped it is a tmpfs, so
 # it lives in RAM — keep this below the memory the host can spare.
 #

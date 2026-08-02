@@ -123,7 +123,8 @@ Every file in the left column is gitignored, so it survives each pull untouched.
 | `app_bot/config.yml` | tokens, who may use the bot, per-user behaviour | `app_bot/config-example.yml` (copy it) |
 | `envs/common.local.env` | settings shared by every service | `envs/common.env` |
 | `envs/worker.local.env` | downloading, storage, thumbnails | `envs/worker.env` |
-| `envs/bot.local.env` · `envs/api.local.env` | one service each | `envs/bot.env` · `envs/api.env` |
+| `envs/api.local.env` | `API_TOKEN` for the HTTP API | `envs/api.env` |
+| `envs/bot.local.env` | Telegram message limits | `envs/bot.env` |
 | `docker-compose.override.yml` | volumes, memory limits, ports | `docker-compose.yml` |
 | `app_worker/ytdl_opts/user.py` | raw yt-dlp options | `app_worker/ytdl_opts/default.py` (copy it) |
 
@@ -354,8 +355,32 @@ hours. Export from a private window and close it *without* logging out.
 
 ## HTTP API
 
-Runs on port `1984` with no authentication. Interactive docs at
+Runs on port `1984`, published on `127.0.0.1` only. Interactive docs at
 `http://127.0.0.1:1984/docs`.
+
+**Set a token before exposing it.** The API queues downloads into the chats the
+bot is configured for, so reaching it is enough to make the bot send files to
+them. Two things keep that shut, and either one alone is sufficient:
+
+```sh
+echo 'API_TOKEN=put-a-long-random-value-here' >> envs/api.local.env
+```
+
+With `API_TOKEN` set, every `/v1/…` route requires a header, and Swagger UI
+grows an **Authorize** button:
+
+```bash
+curl -H "Authorization: Bearer $API_TOKEN" http://127.0.0.1:1984/v1/tasks/stats
+```
+
+With it unset the API accepts everything, which is safe only because the port
+is bound to the host — the service says as much in its log at startup. To reach
+it from elsewhere, set the token *and* republish the port in
+`docker-compose.override.yml`.
+
+`/status` stays open either way, so health checks and uptime monitors need no
+credential. `/docs` and `/openapi.json` also stay open: they describe the API
+but expose no data, and locking them would break the Authorize button.
 
 | Endpoint | Method | Description |
 |---|---|---|

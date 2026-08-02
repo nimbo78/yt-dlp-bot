@@ -40,6 +40,6 @@ if _config_is_ours:
     shutil.copyfile(_CONFIG_EXAMPLE, _CONFIG)
 
 
-def pytest_sessionfinish(session, exitstatus) -> None:  # noqa: ARG001
+def pytest_sessionfinish(session, exitstatus) -> None:
     if _config_is_ours:
         _CONFIG.unlink(missing_ok=True)

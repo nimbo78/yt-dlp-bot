@@ -38,11 +38,30 @@ Two real bugs surfaced while writing the tests, both now fixed:
   already reporting a failed download*, replacing the real reason with a
   traceback about the reporting itself.
 
+### Bearer token for the HTTP API
+
+`API_TOKEN` in `envs/api.local.env`. Unset, the API accepts everything and the
+port is published on `127.0.0.1` only, so an existing deployment keeps working
+after the upgrade and nothing off the host can reach it; the service says so in
+its log at startup. Set, every `/v1/…` route requires
+`Authorization: Bearer <token>`, compared with `secrets.compare_digest`, and
+Swagger UI grows an **Authorize** button.
+
+`/status` stays open so health checks need no credential. `/docs` and
+`/openapi.json` stay open too — they describe the API but expose no data, and
+closing them would break the Authorize button. Both noted in the README.
+
+15 tests drive the dependency through a one-route app rather than the real one,
+which keeps Redis, RabbitMQ and the database out of a question that has nothing
+to do with them.
+
 ---
 
 ## Queued
 
 ### ~~1. Tests and CI~~ — done, see above
+
+### ~~2. Bearer token for the HTTP API~~ — done, see above
 
 **Why now.** There are no tests and no CI in the repository. Meanwhile the last
 few rounds of work added a layer of logic that is easy to break silently and
