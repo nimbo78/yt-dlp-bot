@@ -1,5 +1,7 @@
+import uuid
+
 import sqlalchemy as sa
-from sqlalchemy_utils import Timestamp
+from sqlalchemy_utils import Timestamp, UUIDType
 
 from yt_shared.db.session import Base
 
@@ -13,5 +15,9 @@ class StartupMessage(Base, Timestamp):
     lets the next start clear whatever the last one left behind.
     """
 
+    # See the note in `pending_download.py`: the base's `id` carries a legacy
+    # annotation that recent SQLAlchemy will not copy into a subclass, and
+    # every model that shipped before this one declares its own.
+    id = sa.Column(UUIDType(binary=False), primary_key=True, default=uuid.uuid4)
     chat_id = sa.Column(sa.BigInteger, nullable=False)
     message_id = sa.Column(sa.BigInteger, nullable=False)

@@ -187,6 +187,29 @@ The expiry decision sits in `PendingDownloads` rather than in the store — the
 first cut had the store compare against the cutoff, which put the only
 interesting logic somewhere it could not be tested without a database.
 
+This one took the whole stack down on first deploy, and the cause is worth
+recording. `CustomBase` in `yt_shared/db/session.py` declares its primary key
+as `id: uuid.UUID = sa.Column(...)` — a legacy annotation rather than
+`Mapped[...]` — and SQLAlchemy 2.0.51 refuses to copy such an attribute into a
+subclass, raising `MappedAnnotationError` at import time. All three services
+import `yt_shared.models`, so all three crash-looped together.
+
+Nobody had ever found out, because every model that shipped declares its own
+`id` and so never inherits the annotated one. `PendingDownload` and
+`StartupMessage` were the first that did not. Both now declare it, matching the
+other five; the migrations already create the column, so nothing changed in the
+database. `yt_shared/tests/test_models.py` reads the sources with `ast` and
+holds the rule — importing the models to check it would build the engine and
+put asyncpg on the path of a test that needs neither.
+
+Two things made this reach production. The suite cannot import anything that
+reaches `yt_shared.db.session`, so no test covered the models at all. And
+`sqlalchemy>=2.0.37` floats: `yt_shared/uv.lock` pins 2.0.41, but the Dockerfiles
+end with an unlocked `uv pip install -e ./yt_shared`, so the image resolved
+2.0.51 — the same shape of surprise as the unpinned ruff above, on a day nothing
+here changed. Fixing the base annotation properly, and deciding what to do about
+the unlocked install, are both still open.
+
 ### A playlist link says it is one
 
 `--no-playlist --playlist-items 1:1` means a link to a playlist, an album or a

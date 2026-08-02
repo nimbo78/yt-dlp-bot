@@ -1,5 +1,7 @@
+import uuid
+
 import sqlalchemy as sa
-from sqlalchemy_utils import Timestamp
+from sqlalchemy_utils import Timestamp, UUIDType
 
 from yt_shared.db.session import Base
 from yt_shared.enums import TelegramChatType
@@ -14,6 +16,11 @@ class PendingDownload(Base, Timestamp):
     what they are now.
     """
 
+    # Declared here rather than inherited, as every other model does. The one
+    # on `CustomBase` is annotated `id: uuid.UUID` without `Mapped[]`, which
+    # recent SQLAlchemy refuses to copy into a subclass; every model that
+    # shipped before happened to shadow it, so nobody had ever found out.
+    id = sa.Column(UUIDType(binary=False), primary_key=True, default=uuid.uuid4)
     url_id = sa.Column(sa.String, nullable=False, unique=True, index=True)
     url = sa.Column(sa.String, nullable=False)
     original_url = sa.Column(sa.String, nullable=False)
