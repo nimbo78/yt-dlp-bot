@@ -103,3 +103,32 @@ def _playlist_title(info: dict[str, Any]) -> str:
     if isinstance(title, str) and title.strip():
         return title.strip()
     return 'Playlist'
+
+
+def apply_flat_overrides(
+    opts: dict[str, Any], limit: int, *, cookies_last_resort: bool
+) -> dict[str, Any]:
+    """Force what the download options must not be allowed to decide here.
+
+    Kept as a plain dict-in, dict-out function so it can be tested without
+    yt-dlp: what it corrects is exactly what is invisible until somebody opens
+    a menu and finds one item in it.
+
+    `--playlist-items 1:1` is in the shipped defaults, and in yt-dlp that
+    setting *wins over* `--playlist-end` — `PlaylistEntries` only falls back to
+    the start/end pair when `playlist_items` is unset. Inheriting it would cap
+    every enumeration at the first entry, and nothing would say so: the menu
+    would simply show one row. `--no-playlist` is in there for the same reason
+    and has to go the same way.
+    """
+    opts = dict(opts)
+    opts['noplaylist'] = False
+    opts['playlist_items'] = f'1:{limit}'
+    # An output template is meaningless when nothing is written.
+    opts.pop('outtmpl', None)
+    if cookies_last_resort:
+        # This host is happier anonymously — an authenticated session from a
+        # server address is what draws the bot check. The download path tries
+        # without the cookies first, and so does this.
+        opts.pop('cookiefile', None)
+    return opts

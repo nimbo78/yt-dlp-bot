@@ -25,7 +25,7 @@ from yt_shared.schemas.playlist import (
     PlaylistResultPayload,
 )
 
-from worker.core.playlist import entries_from_info
+from worker.core.playlist import apply_flat_overrides, entries_from_info
 from worker.core.ytdlp_logger import YtdlpLogger
 from worker.utils import cli_to_api
 from ytdl_opts.per_host._base import AbstractHostConfig
@@ -124,18 +124,10 @@ class PlaylistHandler:
             *host_conf.DEFAULT_YTDL_OPTS,
             '--flat-playlist',
             '--skip-download',
-            '--playlist-end',
-            str(limit),
         ])
-        # `--no-playlist` is in the defaults and would reduce this to one item,
-        # which is the exact opposite of the question being asked.
-        opts['noplaylist'] = False
-        opts.pop('outtmpl', None)
-        if host_conf.COOKIES_LAST_RESORT:
-            # This host is happier anonymously; the download path drops the
-            # cookies for the first attempt and so does this.
-            opts.pop('cookiefile', None)
-        return opts
+        return apply_flat_overrides(
+            opts, limit, cookies_last_resort=host_conf.COOKIES_LAST_RESORT
+        )
 
     @staticmethod
     def _failure(payload: PlaylistRequestPayload, error: str) -> PlaylistResultPayload:
