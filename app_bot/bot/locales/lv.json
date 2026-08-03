@@ -46,7 +46,7 @@
     "nothing_selected": "Nekas nav atzīmēts",
     "chosen": "📋 <b>Atlasīts: {count}</b>\n\nKo lejupielādēt un kādā kvalitātē?",
     "queueing": "⏳ <b>Ievietoju rindā: {count}…</b>",
-    "queued": "✅ <b>Rindā: {count}</b>\n\nTiks lejupielādēti cits pēc cita, katram sava ziņa.",
+    "queued": "✅ <b>Rindā: {count}</b>\n\nKatram sava ziņa.",
     "queued_some": "⚠️ <b>Rindā {count} no {total}</b>\n\nPārējos neizdevās nodot.",
     "item_queued": "⏳ <b>Rindā</b> — {index}. {title}"
   },

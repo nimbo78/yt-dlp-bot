@@ -46,7 +46,7 @@
     "nothing_selected": "Noch nichts ausgewählt",
     "chosen": "📋 <b>{count} ausgewählt</b>\n\nWas soll ich laden, und in welcher Qualität?",
     "queueing": "⏳ <b>{count} werden eingereiht…</b>",
-    "queued": "✅ <b>{count} eingereiht</b>\n\nSie laden nacheinander, jeder mit eigener Nachricht.",
+    "queued": "✅ <b>{count} eingereiht</b>\n\nJeder mit eigener Nachricht.",
     "queued_some": "⚠️ <b>{count} von {total} eingereiht</b>\n\nDer Rest ging nicht durch.",
     "item_queued": "⏳ <b>In der Warteschlange</b> — {index}. {title}"
   },

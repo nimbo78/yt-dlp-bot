@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from aio_pika import IncomingMessage
@@ -5,6 +6,7 @@ from yt_shared.schemas.media import InbMediaPayload
 from yt_shared.schemas.playlist import PlaylistRequestPayload
 from yt_shared.utils.tasks.tasks import create_task
 
+from worker.core.config import settings
 from worker.core.payload_handler import InboundPayloadHandler
 from worker.core.playlist_handler import PlaylistHandler
 
@@ -16,6 +18,20 @@ class RMQCallbacks:
         self._log = logging.getLogger(self.__class__.__name__)
         self._payload_handler = InboundPayloadHandler()
         self._playlist_handler = PlaylistHandler()
+        # What actually bounds concurrent downloads. The channel's prefetch
+        # does not: the message below is acknowledged before the download
+        # starts, so the broker is free to deliver the next one immediately and
+        # aio_pika runs every callback as a task of its own. Before this, a
+        # selection of ten playlist items ran ten downloads at once on a host
+        # that can hold two, and `MAX_SIMULTANEOUS_DOWNLOADS` said otherwise
+        # while meaning nothing.
+        #
+        # Acknowledging late would be the tidier fix and is not available:
+        # RabbitMQ closes a channel whose consumer holds a message longer than
+        # `consumer_timeout` — thirty minutes as shipped — which a large
+        # download passes, and the channel is shared with the playlist
+        # consumer, so an unacknowledged download would also block enumeration.
+        self._slot = asyncio.Semaphore(settings.MAX_SIMULTANEOUS_DOWNLOADS)
 
     async def on_input_message(self, message: IncomingMessage) -> None:
         try:
@@ -60,7 +76,11 @@ class RMQCallbacks:
             return
 
         await message.ack()
-        await self._payload_handler.handle(media_payload=media_payload)
+        async with self._slot:
+            # Everything past this point is one download's worth of work: the
+            # network, the disk and the FFmpeg pass. Waiting here is what makes
+            # a queue of them a queue rather than a stampede.
+            await self._payload_handler.handle(media_payload=media_payload)
         self._log.info('Processing done with payload: %s', media_payload)
 
     async def _reject_invalid_message(self, message: IncomingMessage) -> None:

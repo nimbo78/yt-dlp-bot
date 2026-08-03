@@ -46,7 +46,7 @@
     "nothing_selected": "Non hai selezionato nulla",
     "chosen": "📋 <b>{count} selezionati</b>\n\nCosa scarico, e con che qualità?",
     "queueing": "⏳ <b>Mando in coda {count}…</b>",
-    "queued": "✅ <b>{count} in coda</b>\n\nSi scaricano uno dopo l’altro, ognuno con il suo messaggio.",
+    "queued": "✅ <b>{count} in coda</b>\n\nOgnuno con il suo messaggio.",
     "queued_some": "⚠️ <b>{count} di {total} in coda</b>\n\nIl resto non è stato inviato.",
     "item_queued": "⏳ <b>In coda</b> — {index}. {title}"
   },

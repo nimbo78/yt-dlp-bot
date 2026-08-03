@@ -128,9 +128,11 @@ only, nothing is downloaded — and lists what is in it, eight to a page, up to
 Tick the ones you want, or use **All** / **None**, then **Next**. Choose the
 format and quality once, and every ticked entry is queued at it. Each gets a
 status message of its own, so they are as easy to follow as any single
-download, and they run at `MAX_SIMULTANEOUS_DOWNLOADS` at a time rather than all
-at once. At most 25 per go — a slip of the finger on a 500-video channel should
-stay cheap.
+download.
+
+They are **queued**, not all started: `MAX_SIMULTANEOUS_DOWNLOADS` decides how
+many run at a time, and 1 makes a selection strictly sequential. At most 25 per
+go — a slip of the finger on a 500-video channel should stay cheap.
 
 Entries that cannot be opened are left out, so the numbers on the buttons follow
 the source rather than the list: item 3 stays 3 even if item 2 was a deleted
@@ -215,7 +217,13 @@ applies to each download, so `2M` with `MAX_SIMULTANEOUS_DOWNLOADS=2` can still
 use 4 MB/s in total.
 
 **Parallel downloads.** `MAX_SIMULTANEOUS_DOWNLOADS` in `envs/worker.env`,
-default 2. Raise it with the temporary space above in mind.
+default 2. **Set it to 1 for strictly sequential downloads**, which is what a
+small host wants: one at a time uses one download's worth of staging space, one
+FFmpeg pass and one share of the connection. Raise it on a machine with room to
+spare, with the temporary space above in mind.
+
+This bounds what actually runs, not what may be queued. A selection of twenty
+still queues twenty; they wait their turn in the worker.
 
 **Running out of room.** `MIN_FREE_SPACE_MB` in `envs/worker.env`, default 512,
 is kept free in the staging area. A download is refused outright when less than

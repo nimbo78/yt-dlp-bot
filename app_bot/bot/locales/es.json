@@ -46,7 +46,7 @@
     "nothing_selected": "No has marcado nada",
     "chosen": "📋 <b>{count} seleccionados</b>\n\n¿Qué descargo, y en qué calidad?",
     "queueing": "⏳ <b>Poniendo {count} en cola…</b>",
-    "queued": "✅ <b>{count} en cola</b>\n\nSe descargan uno tras otro, cada uno con su mensaje.",
+    "queued": "✅ <b>{count} en cola</b>\n\nCada uno con su mensaje.",
     "queued_some": "⚠️ <b>{count} de {total} en cola</b>\n\nEl resto no se pudo enviar.",
     "item_queued": "⏳ <b>En cola</b> — {index}. {title}"
   },

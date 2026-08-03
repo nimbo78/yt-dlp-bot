@@ -1,6 +1,6 @@
 import re
 
-from pydantic import DirectoryPath, field_validator
+from pydantic import DirectoryPath, PositiveInt, field_validator
 from yt_shared.config import CommonSettings
 
 _RATE_RE = re.compile(r'\d+(\.\d+)?[KMG]?', re.IGNORECASE)
@@ -9,7 +9,10 @@ _LANG_RE = re.compile(r'[a-z]{2,3}(-[A-Za-z0-9]{2,4})?')
 
 class WorkerSettings(CommonSettings):
     APPLICATION_NAME: str
-    MAX_SIMULTANEOUS_DOWNLOADS: int
+    # How many downloads actually run at once. 1 is sequential, which is what
+    # a small host wants. Positive rather than plain int: zero would stop the
+    # worker dead with no error anywhere.
+    MAX_SIMULTANEOUS_DOWNLOADS: PositiveInt
     STORAGE_PATH: DirectoryPath
     THUMBNAIL_FRAME_SECOND: float
     INSTAGRAM_ENCODE_TO_H264: bool

@@ -46,7 +46,7 @@
     "nothing_selected": "לא סומן כלום",
     "chosen": "📋 <b>נבחרו {count}</b>\n\nמה להוריד, ובאיזו איכות?",
     "queueing": "⏳ <b>מוסיף לתור {count}…</b>",
-    "queued": "✅ <b>{count} בתור</b>\n\nיורדים אחד אחרי השני, לכל אחד הודעה משלו.",
+    "queued": "✅ <b>{count} בתור</b>\n\nלכל אחד הודעה משלו.",
     "queued_some": "⚠️ <b>{count} מתוך {total} בתור</b>\n\nאת השאר לא הצלחתי לשלוח.",
     "item_queued": "⏳ <b>בתור</b> — {index}. {title}"
   },

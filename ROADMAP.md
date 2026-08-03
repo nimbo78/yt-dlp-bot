@@ -395,6 +395,37 @@ The decrement and the read are a single `UPDATE … RETURNING`. Two workers
 finishing in the same instant would otherwise both read the same number and
 neither would see zero. Verified against a real PostgreSQL, not reasoned about.
 
+### `MAX_SIMULTANEOUS_DOWNLOADS` never limited anything
+
+Found the first time a selection of several ran: they all downloaded at once on
+a host that can hold two, while the setting that claims to govern exactly this
+sat at its default of 2.
+
+`worker/core/callbacks.py` acknowledged the message *before* starting the
+download. Acknowledging releases the channel's prefetch slot, so the broker
+delivered the next message immediately and aio_pika ran each callback as a task
+of its own. The prefetch count was therefore decorative: it limited how many
+messages could be in flight unacknowledged, and there were never any.
+
+An `asyncio.Semaphore` around the work now does what the prefetch was supposed
+to, and the setting means what it says — 1 is sequential. The type changed to
+`PositiveInt`, because 0 would have stopped the worker with no error anywhere.
+
+Acknowledging late would be the tidier fix and is not available. RabbitMQ closes
+a channel whose consumer holds a message longer than `consumer_timeout` — thirty
+minutes as shipped — which a large download passes; and the channel is shared
+with the playlist consumer, so an unacknowledged download would block
+enumeration as well. Raising the timeout and giving the playlist consumer a
+channel of its own would buy real backpressure and crash-safety: a worker that
+dies mid-download would have its message redelivered rather than losing it
+silently, which is what happens today and happened before this change too.
+
+Not covered by a test, and worth being plain about why: `worker/core/callbacks.py`
+imports the settings and both handlers at module scope, so importing it needs
+the full environment and aio_pika — the same boundary the suite does not cross
+anywhere else. The semaphore is four lines; the reasoning above is the part that
+had to be right.
+
 Still missing, and now the obvious next thing: **cancelling**. Twenty queued
 items and no stop button is the remaining sharp edge.
 

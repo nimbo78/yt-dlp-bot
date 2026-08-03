@@ -46,7 +46,7 @@
     "nothing_selected": "Nothing ticked yet",
     "chosen": "📋 <b>{count} selected</b>\n\nWhat should I download, and at what quality?",
     "queueing": "⏳ <b>Queueing {count}…</b>",
-    "queued": "✅ <b>{count} queued</b>\n\nThey download one after another; each has its own message.",
+    "queued": "✅ <b>{count} queued</b>\n\nEach has a message of its own.",
     "queued_some": "⚠️ <b>{count} of {total} queued</b>\n\nThe rest could not be sent to the worker.",
     "item_queued": "⏳ <b>Queued</b> — {index}. {title}"
   },
