@@ -6,6 +6,8 @@ menu simply never appears. So the budget is asserted against the widest
 identifier the bot can actually generate, not against a convenient one.
 """
 
+import datetime
+
 import pytest
 
 from bot.core.playlist_menu import (
@@ -15,6 +17,7 @@ from bot.core.playlist_menu import (
     PLAYLIST_NOOP,
     PLAYLIST_PAGE_PREFIX,
     MenuEntry,
+    MenuPage,
     StoredPlaylist,
     build_menu,
     clamp_page,
@@ -34,6 +37,14 @@ def entries(count: int, start: int = 1) -> list[MenuEntry]:
     ]
 
 
+def menu(entries_, url_id: str = 'c_1', page: int = 0) -> MenuPage:
+    """`build_menu` with the two labels its caller always supplies."""
+    return build_menu(
+        entries_, url_id, cancel_label='Cancel', cancel_data=f'cancel:{url_id}',
+        page=page,
+    )
+
+
 def item_rows(page) -> list:
     """Rows carrying an entry, i.e. everything above the navigation."""
     return [row for row in page.rows if row[0].data.startswith(PLAYLIST_ITEM_PREFIX)]
@@ -41,20 +52,20 @@ def item_rows(page) -> list:
 
 class TestPaging:
     def test_a_short_list_is_one_page(self) -> None:
-        page = build_menu(entries(3), 'c_1')
+        page = menu(entries(3), 'c_1')
         assert page.total_pages == 1
         assert len(item_rows(page)) == 3
 
     def test_a_full_page_is_still_one_page(self) -> None:
-        assert build_menu(entries(PAGE_SIZE), 'c_1').total_pages == 1
+        assert menu(entries(PAGE_SIZE), 'c_1').total_pages == 1
 
     def test_one_more_than_a_page(self) -> None:
-        page = build_menu(entries(PAGE_SIZE + 1), 'c_1')
+        page = menu(entries(PAGE_SIZE + 1), 'c_1')
         assert page.total_pages == 2
         assert len(item_rows(page)) == PAGE_SIZE
 
     def test_the_last_page_holds_the_remainder(self) -> None:
-        page = build_menu(entries(PAGE_SIZE + 3), 'c_1', page=1)
+        page = menu(entries(PAGE_SIZE + 3), 'c_1', page=1)
         assert len(item_rows(page)) == 3
         assert [e.index for e in page.entries] == [
             PAGE_SIZE + 1,
@@ -63,25 +74,25 @@ class TestPaging:
         ]
 
     def test_no_navigation_row_when_everything_fits(self) -> None:
-        page = build_menu(entries(3), 'c_1')
+        page = menu(entries(3), 'c_1')
         assert not any(
             button.data == PLAYLIST_NOOP for row in page.rows for button in row
         )
 
     def test_navigation_appears_once_it_does_not(self) -> None:
-        page = build_menu(entries(20), 'c_1')
+        page = menu(entries(20), 'c_1')
         counters = [b for row in page.rows for b in row if b.data == PLAYLIST_NOOP]
         assert [b.label for b in counters] == ['1/3']
 
     def test_paging_wraps_rather_than_leaving_a_dead_button(self) -> None:
         """A back arrow on the first page that does nothing reads as broken."""
-        first = build_menu(entries(20), 'c_1', page=0)
+        first = menu(entries(20), 'c_1', page=0)
         nav = [b for row in first.rows for b in row if b.data.startswith(
             PLAYLIST_PAGE_PREFIX
         )]
         assert [b.data for b in nav] == ['pp:c_1:2', 'pp:c_1:1']
 
-        last = build_menu(entries(20), 'c_1', page=2)
+        last = menu(entries(20), 'c_1', page=2)
         nav = [b for row in last.rows for b in row if b.data.startswith(
             PLAYLIST_PAGE_PREFIX
         )]
@@ -89,7 +100,7 @@ class TestPaging:
 
     def test_every_page_ends_with_cancel(self) -> None:
         for page_number in range(3):
-            page = build_menu(entries(20), 'c_1', page=page_number)
+            page = menu(entries(20), 'c_1', page=page_number)
             assert page.rows[-1][0].data == 'cancel:c_1'
 
 
@@ -102,7 +113,7 @@ class TestPageCountAndClamping:
         assert page_count(count) == expected
 
     def test_an_empty_list_is_one_empty_page(self) -> None:
-        page = build_menu([], 'c_1')
+        page = menu([], 'c_1')
         assert page.total_pages == 1
         assert item_rows(page) == []
         assert page.rows[-1][0].data == 'cancel:c_1'
@@ -110,11 +121,11 @@ class TestPageCountAndClamping:
     def test_a_page_past_the_end_lands_on_the_last(self) -> None:
         """The menu may have been re-read shorter since the button was drawn."""
         assert clamp_page(99, 20) == 2
-        assert build_menu(entries(20), 'c_1', page=99).number == 2
+        assert menu(entries(20), 'c_1', page=99).number == 2
 
     def test_a_negative_page_lands_on_the_first(self) -> None:
         assert clamp_page(-5, 20) == 0
-        assert build_menu(entries(20), 'c_1', page=-5).number == 0
+        assert menu(entries(20), 'c_1', page=-5).number == 0
 
 
 class TestLabels:
@@ -151,7 +162,7 @@ class TestCallbackDataBudget:
 
     def test_every_button_fits(self) -> None:
         url_id = self.widest_url_id()
-        page = build_menu(entries(100), url_id, page=11)
+        page = menu(entries(100), url_id, page=11)
         for row in page.rows:
             for button in row:
                 assert len(button.data.encode()) <= CALLBACK_DATA_LIMIT, button.data
@@ -160,7 +171,7 @@ class TestCallbackDataBudget:
         """Not just under the limit — under it by enough that a longer id later
         does not quietly break this."""
         url_id = self.widest_url_id()
-        page = build_menu(entries(100), url_id, page=11)
+        page = menu(entries(100), url_id, page=11)
         longest = max(len(b.data.encode()) for row in page.rows for b in row)
         assert longest <= CALLBACK_DATA_LIMIT // 2, longest
 
@@ -216,8 +227,9 @@ class TestStorageRoundTrip:
 
 
 class TestStoredPlaylist:
-    def test_truncation_is_reported(self) -> None:
-        full = StoredPlaylist(title='A', entries=entries(10), total=10)
-        cut = StoredPlaylist(title='A', entries=entries(10), total=250)
-        assert not full.is_truncated
-        assert cut.is_truncated
+    def test_it_carries_its_age_for_the_policy_layer_to_judge(self) -> None:
+        """The store does not decide staleness; `bot.core.playlists` does."""
+        when = datetime.datetime(2026, 8, 2, 23, 0, tzinfo=datetime.UTC)
+        stored = StoredPlaylist(entries=entries(3), added_at=when)
+        assert stored.added_at == when
+        assert len(stored.entries) == 3

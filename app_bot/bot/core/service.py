@@ -1,17 +1,15 @@
 import logging
 import re
 from itertools import product
-from urllib.parse import urljoin, urlparse
 
 from pyrogram.types import Message
-from yt_shared.constants import REMOVE_QUERY_PARAMS_HOSTS
 from yt_shared.enums import TaskSource, TelegramChatType
 from yt_shared.rabbit.publisher import RmqPublisher
 from yt_shared.schemas.media import InbMediaPayload
 from yt_shared.schemas.url import URL
 
 from bot.core.schemas import UserSchema
-from bot.core.utils import can_remove_url_params
+from bot.core.utils import strip_url_params
 
 
 class UrlService:
@@ -50,13 +48,7 @@ class UrlParser:
 
     @staticmethod
     def _preprocess_urls(urls: list[str]) -> dict[str, str]:
-        preprocessed_urls: dict[str, str] = {}
-        for url in urls:
-            if can_remove_url_params(url=url, matching_hosts=REMOVE_QUERY_PARAMS_HOSTS):
-                preprocessed_urls[url] = urljoin(url, urlparse(url).path)
-            else:
-                preprocessed_urls[url] = url
-        return preprocessed_urls
+        return {url: strip_url_params(url) for url in urls}
 
     def parse_urls(
         self, urls: list[str], context: dict[str, Message | UserSchema]

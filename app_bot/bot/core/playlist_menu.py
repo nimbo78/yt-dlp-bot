@@ -15,6 +15,7 @@ Kept free of Pyrogram so it can be tested: the markup is assembled from what
 this returns, in `bot.core.keyboards`.
 """
 
+import datetime
 from dataclasses import dataclass
 from typing import Any, Final
 
@@ -24,7 +25,8 @@ PLAYLIST_PREFIX: Final[str] = 'pl:'
 PLAYLIST_PAGE_PREFIX: Final[str] = 'pp:'
 PLAYLIST_ITEM_PREFIX: Final[str] = 'pi:'
 # The page counter is a button because a keyboard row has nothing else to put
-# there. Pressing it does nothing, deliberately.
+# there. Its data matches no dispatch branch on purpose — the fallback in
+# `on_callback_query` answers it, along with anything an older build drew.
 PLAYLIST_NOOP: Final[str] = 'pnoop'
 
 # Telegram's own limit, in bytes rather than characters.
@@ -32,6 +34,9 @@ CALLBACK_DATA_LIMIT: Final[int] = 64
 
 # Enough to scan without scrolling past the message above it.
 PAGE_SIZE: Final[int] = 8
+# Angle quotes rather than < and >, which are markup wherever this travels.
+PREVIOUS_LABEL: Final[str] = '\u2039'
+NEXT_LABEL: Final[str] = '\u203a'
 # Beyond this a title is not read, only stepped over.
 LABEL_LIMIT: Final[int] = 32
 
@@ -47,16 +52,15 @@ class MenuEntry:
 
 @dataclass(frozen=True)
 class StoredPlaylist:
-    """An enumeration as it comes back out of storage."""
+    """An enumeration as it comes back out of storage, age included.
 
-    title: str
+    The age travels with it rather than being judged in the store: whether it
+    is too old to offer is policy, and policy lives in `bot.core.playlists`
+    where it can be tested without a database driver on the import path.
+    """
+
     entries: list[MenuEntry]
-    # What the source claimed, before the limit and the unusable ones went.
-    total: int
-
-    @property
-    def is_truncated(self) -> bool:
-        return self.total > len(self.entries)
+    added_at: datetime.datetime
 
 
 def entries_to_rows(entries: list[MenuEntry]) -> list[dict[str, Any]]:
@@ -140,32 +144,30 @@ def entry_label(entry: MenuEntry, limit: int = LABEL_LIMIT) -> str:
     return f'{entry.index}. {truncate_label(entry.title, limit)}'
 
 
-def build_menu(  # noqa: PLR0913
+def build_menu(
     entries: list[MenuEntry],
     url_id: str,
-    page: int = 0,
     *,
-    page_size: int = PAGE_SIZE,
-    label_limit: int = LABEL_LIMIT,
-    # Angle quotes rather than < and >: those are markup in a caption and
-    # would have to be escaped everywhere this label travels.
-    previous_label: str = '\u2039',
-    next_label: str = '\u203a',
-    cancel_label: str = 'Cancel',
+    cancel_label: str,
+    # Passed in rather than spelled here: the prefix belongs to `keyboards`,
+    # which cannot be imported from this side without a cycle, and a literal
+    # copy of it would survive a rename in silence.
+    cancel_data: str,
+    page: int = 0,
 ) -> MenuPage:
     """Lay out one page: an item per row, then navigation, then cancel.
 
     One button per row rather than two: these are titles, and two of them side
     by side leaves room for neither.
     """
-    total_pages = page_count(len(entries), page_size)
-    page = clamp_page(page, len(entries), page_size)
-    shown = entries[page * page_size : (page + 1) * page_size]
+    total_pages = page_count(len(entries))
+    page = clamp_page(page, len(entries))
+    shown = entries[page * PAGE_SIZE : (page + 1) * PAGE_SIZE]
 
     rows: list[list[MenuButton]] = [
         [
             MenuButton(
-                label=entry_label(entry, label_limit),
+                label=entry_label(entry),
                 data=f'{PLAYLIST_ITEM_PREFIX}{url_id}:{entry.index}',
             )
         ]
@@ -175,19 +177,19 @@ def build_menu(  # noqa: PLR0913
     if total_pages > 1:
         rows.append([
             MenuButton(
-                label=previous_label,
+                label=PREVIOUS_LABEL,
                 # Wraps around, because the alternative is a dead button on the
                 # first page and a menu that looks broken.
                 data=f'{PLAYLIST_PAGE_PREFIX}{url_id}:{(page - 1) % total_pages}',
             ),
             MenuButton(label=f'{page + 1}/{total_pages}', data=PLAYLIST_NOOP),
             MenuButton(
-                label=next_label,
+                label=NEXT_LABEL,
                 data=f'{PLAYLIST_PAGE_PREFIX}{url_id}:{(page + 1) % total_pages}',
             ),
         ])
 
-    rows.append([MenuButton(label=cancel_label, data=f'cancel:{url_id}')])
+    rows.append([MenuButton(label=cancel_label, data=cancel_data)])
     return MenuPage(
         number=page, total_pages=total_pages, rows=rows, entries=list(shown)
     )

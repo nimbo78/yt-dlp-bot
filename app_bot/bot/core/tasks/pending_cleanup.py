@@ -11,8 +11,6 @@ from typing import TYPE_CHECKING
 
 from yt_shared.utils.tasks.abstract import AbstractTask
 
-from bot.core.playlist_store import cutoff as playlist_cutoff
-
 if TYPE_CHECKING:
     from bot.bot.client import VideoBotClient
 
@@ -45,7 +43,7 @@ class PendingCleanupTask(AbstractTask):
                 )
 
             try:
-                stale = await self._bot.playlists.delete_older_than(playlist_cutoff())
+                stale = await self._bot.playlists.sweep()
             except Exception:
                 self._log.exception('Could not sweep the stored playlists')
                 continue

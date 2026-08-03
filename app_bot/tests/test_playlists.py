@@ -1,132 +1,191 @@
-"""Which links point at many things, and which at one.
+"""When a stored menu stops being offered, and what happens when it cannot be read.
 
-The cost of the two mistakes is not symmetric, and the cases below are picked
-to reflect that: a missed collection leaves the behaviour this fork has always
-had, while a false positive puts a warning on an ordinary link somebody sends
-every day. So the "one thing" cases are the ones worth being exhaustive about.
+The whole point of keeping the policy out of the store is that these can be
+exercised without a database driver on the import path. The store below only
+stores and returns; every decision under test is made in `bot.core.playlists`.
 """
+
+import datetime
 
 import pytest
 
-from bot.core.playlists import is_collection_link
-
-COLLECTIONS = [
-    # YouTube: playlists, channels in each of the four URL shapes it has
-    # accumulated, and the tab pages hanging off a handle.
-    'https://www.youtube.com/playlist?list=PLabc123',
-    'https://youtube.com/playlist?list=PLabc123',
-    'https://m.youtube.com/playlist?list=PLabc123',
-    'https://music.youtube.com/playlist?list=OLAK5uy_abc',
-    'https://www.youtube.com/channel/UCabc123def',
-    'https://www.youtube.com/c/SomeChannel',
-    'https://www.youtube.com/user/SomeOldChannel',
-    'https://www.youtube.com/@someone',
-    'https://www.youtube.com/@someone/videos',
-    'https://www.youtube.com/@someone/shorts',
-    'https://www.youtube.com/@someone/playlists',
-    'https://www.youtube.com/feed/subscriptions',
-    # SoundCloud: sets, artist pages and the tabs on them.
-    'https://soundcloud.com/artist/sets/some-album',
-    'https://soundcloud.com/artist/sets',
-    'https://soundcloud.com/artist',
-    'https://soundcloud.com/artist/tracks',
-    'https://soundcloud.com/artist/albums',
-    'https://soundcloud.com/artist/likes',
-    'https://soundcloud.com/artist/reposts',
-    'https://m.soundcloud.com/artist/sets/some-album',
-    'https://soundcloud.com/discover',
-    # Vimeo.
-    'https://vimeo.com/album/123456',
-    'https://vimeo.com/channels/staffpicks',
-    'https://vimeo.com/showcase/9876543',
-    'https://vimeo.com/groups/motion',
-    # Bandcamp, where the artist gets a subdomain of their own.
-    'https://artist.bandcamp.com/album/some-record',
-    'https://artist.bandcamp.com/music',
-    'https://artist.bandcamp.com',
-    'https://artist.bandcamp.com/',
-]
-
-SINGLE_ITEMS = [
-    # The shape you get from the address bar with a playlist playing. Ordinary
-    # enough that warning about it would put a notice on most YouTube links.
-    'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLabc123',
-    'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLabc123&index=4',
-    'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    'https://youtu.be/dQw4w9WgXcQ',
-    'https://youtu.be/dQw4w9WgXcQ?list=PLabc123',
-    'https://www.youtube.com/shorts/abc123def',
-    'https://www.youtube.com/live/abc123def',
-    'https://music.youtube.com/watch?v=abc123&list=OLAK5uy_abc',
-    'https://soundcloud.com/artist/some-track',
-    'https://soundcloud.com/artist/some-track?in=other%2Fsets%2Falbum',
-    'https://vimeo.com/123456789',
-    'https://vimeo.com/123456789/abcdef',
-    'https://artist.bandcamp.com/track/some-song',
-    # Hosts with no rule of their own are left alone, whatever they look like.
-    'https://x.com/someone/status/2083594794454921589',
-    'https://www.instagram.com/reel/Cabc123/',
-    'https://www.tiktok.com/@someone/video/7123456789',
-    'https://example.com/whatever/deeply/nested/thing',
-]
+from bot.core.playlist_menu import MenuEntry, StoredPlaylist
+from bot.core.playlists import TTL, Playlists
 
 
-@pytest.mark.parametrize('url', COLLECTIONS)
-def test_a_collection_is_recognised(url: str) -> None:
-    assert is_collection_link(url) is True
+def now() -> datetime.datetime:
+    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
 
-@pytest.mark.parametrize('url', SINGLE_ITEMS)
-def test_a_single_item_is_left_alone(url: str) -> None:
-    assert is_collection_link(url) is False
+def entries(count: int = 3) -> list[MenuEntry]:
+    return [
+        MenuEntry(index=i, title=f'Track {i}', url=f'https://example.com/{i}')
+        for i in range(1, count + 1)
+    ]
 
 
-class TestHostNormalisation:
-    """The lookups are exact, so anything decorating the host has to come off."""
+class FakeStore:
+    """An in-memory stand-in that stores and returns; it judges nothing."""
 
-    @pytest.mark.parametrize(
-        'url',
-        [
-            'https://WWW.YOUTUBE.COM/playlist?list=PLabc',
-            'https://youtube.com:443/playlist?list=PLabc',
-            'http://www.youtube.com/playlist?list=PLabc',
-            '  https://www.youtube.com/playlist?list=PLabc  ',
-        ],
-    )
-    def test_still_recognised(self, url: str) -> None:
-        assert is_collection_link(url) is True
+    def __init__(self) -> None:
+        self.rows: dict[str, StoredPlaylist] = {}
+        self.raises_on_load = False
+        self.raises_on_delete = False
 
-    def test_a_lookalike_host_is_not_youtube(self) -> None:
-        """`youtube.com.evil.test` is not YouTube, and neither is a substring."""
-        assert is_collection_link('https://youtube.com.evil.test/playlist') is False
-        assert is_collection_link('https://notyoutube.com/playlist') is False
+    async def save(self, url_id: str, menu_entries: list[MenuEntry]) -> None:
+        self.rows[url_id] = StoredPlaylist(entries=menu_entries, added_at=now())
 
+    async def load(self, url_id: str) -> StoredPlaylist | None:
+        if self.raises_on_load:
+            raise RuntimeError('database is down')
+        return self.rows.get(url_id)
 
-class TestRubbishIn:
-    """This runs on every message, so nothing it is handed may raise."""
+    async def delete(self, url_id: str) -> None:
+        if self.raises_on_delete:
+            raise RuntimeError('database is down')
+        self.rows.pop(url_id, None)
 
-    @pytest.mark.parametrize(
-        'url',
-        [
-            '',
-            '   ',
-            'not a url at all',
-            'https://',
-            'http://[',
-            'javascript:alert(1)',
-        ],
-    )
-    def test_answers_false_rather_than_raising(self, url: str) -> None:
-        assert is_collection_link(url) is False
+    async def delete_older_than(self, cutoff: datetime.datetime) -> int:
+        stale = [k for k, v in self.rows.items() if v.added_at < cutoff]
+        for url_id in stale:
+            del self.rows[url_id]
+        return len(stale)
 
-    def test_a_broken_port_still_answers(self) -> None:
-        """`True` here, and that is fine: the URL will fail downstream for its
-        own reasons, and the only thing riding on this answer is one line of
-        text. What matters is that reading the host did not raise."""
-        assert is_collection_link('https://youtube.com:notaport/playlist') is True
+    def age(self, url_id: str, by: datetime.timedelta) -> None:
+        row = self.rows[url_id]
+        self.rows[url_id] = StoredPlaylist(
+            entries=row.entries, added_at=now() - by
+        )
 
 
-def test_a_bare_host_with_no_rule_is_not_a_collection() -> None:
-    """The bandcamp rule treats an empty path as the artist page; that must
-    not leak into hosts the module says nothing about."""
-    assert is_collection_link('https://example.com') is False
+@pytest.fixture
+def store() -> FakeStore:
+    return FakeStore()
+
+
+@pytest.fixture
+def playlists(store: FakeStore) -> Playlists:
+    return Playlists(store)
+
+
+def test_the_ttl_is_six_hours() -> None:
+    """Shorter than the pending downloads' two days, on purpose: a playlist
+    gains and loses items while nobody is looking at the menu."""
+    assert TTL.total_seconds() == 6 * 60 * 60
+
+
+class TestGet:
+    @pytest.mark.asyncio
+    async def test_a_fresh_menu_comes_back(self, playlists: Playlists) -> None:
+        await playlists.save('a', entries())
+        found = await playlists.get('a')
+        assert found is not None
+        assert [e.index for e in found] == [1, 2, 3]
+
+    @pytest.mark.asyncio
+    async def test_just_short_of_the_ttl(
+        self, playlists: Playlists, store: FakeStore
+    ) -> None:
+        await playlists.save('a', entries())
+        store.age('a', datetime.timedelta(hours=5, minutes=59))
+        assert await playlists.get('a') is not None
+
+    @pytest.mark.asyncio
+    async def test_past_the_ttl_reads_as_absent(
+        self, playlists: Playlists, store: FakeStore
+    ) -> None:
+        await playlists.save('a', entries())
+        store.age('a', datetime.timedelta(hours=7))
+        assert await playlists.get('a') is None
+
+    @pytest.mark.asyncio
+    async def test_a_stale_menu_is_dropped_on_the_way_out(
+        self, playlists: Playlists, store: FakeStore
+    ) -> None:
+        await playlists.save('a', entries())
+        store.age('a', datetime.timedelta(days=2))
+        await playlists.get('a')
+        assert store.rows == {}
+
+    @pytest.mark.asyncio
+    async def test_an_unknown_id(self, playlists: Playlists) -> None:
+        assert await playlists.get('nope') is None
+
+    @pytest.mark.asyncio
+    async def test_a_broken_store_reads_as_expired(
+        self, playlists: Playlists, store: FakeStore
+    ) -> None:
+        """Far better than an unanswered callback, which spins until the
+        client gives up."""
+        await playlists.save('a', entries())
+        store.raises_on_load = True
+        assert await playlists.get('a') is None
+
+    @pytest.mark.asyncio
+    async def test_getting_does_not_consume(self, playlists: Playlists) -> None:
+        await playlists.save('a', entries())
+        await playlists.get('a')
+        assert await playlists.get('a') is not None
+
+
+class TestRemove:
+    @pytest.mark.asyncio
+    async def test_a_menu_that_has_served_its_purpose(
+        self, playlists: Playlists, store: FakeStore
+    ) -> None:
+        await playlists.save('a', entries())
+        await playlists.remove('a')
+        assert store.rows == {}
+
+    @pytest.mark.asyncio
+    async def test_removing_something_that_is_not_there(
+        self, playlists: Playlists
+    ) -> None:
+        await playlists.remove('nope')
+
+    @pytest.mark.asyncio
+    async def test_a_failed_delete_does_not_reach_the_caller(
+        self, playlists: Playlists, store: FakeStore
+    ) -> None:
+        """The sweep will get it; at worst a stale row waits six hours. The
+        press that triggered this has a download to get on with."""
+        await playlists.save('a', entries())
+        store.raises_on_delete = True
+        await playlists.remove('a')
+
+
+class TestSweep:
+    @pytest.mark.asyncio
+    async def test_removes_only_what_is_past_its_time(
+        self, playlists: Playlists, store: FakeStore
+    ) -> None:
+        await playlists.save('fresh', entries())
+        await playlists.save('old', entries())
+        store.age('old', datetime.timedelta(hours=7))
+        assert await playlists.sweep() == 1
+        assert await playlists.get('fresh') is not None
+
+    @pytest.mark.asyncio
+    async def test_an_empty_store(self, playlists: Playlists) -> None:
+        assert await playlists.sweep() == 0
+
+    @pytest.mark.asyncio
+    async def test_it_reaches_menus_nobody_looks_up(
+        self, playlists: Playlists, store: FakeStore
+    ) -> None:
+        """The reason the sweep exists: eviction on access never gets to the
+        menus that are actually accumulating."""
+        for i in range(20):
+            await playlists.save(f'k{i}', entries())
+            store.age(f'k{i}', datetime.timedelta(days=1))
+        assert await playlists.sweep() == 20
+        assert store.rows == {}
+
+
+@pytest.mark.asyncio
+async def test_a_menu_survives_being_read_by_a_new_instance(
+    store: FakeStore,
+) -> None:
+    """The process may be a different one by the time a page is turned."""
+    await Playlists(store).save('a', entries())
+    assert await Playlists(store).get('a') is not None

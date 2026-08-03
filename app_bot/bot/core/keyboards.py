@@ -7,7 +7,6 @@ from bot.core.i18n import t
 from bot.core.playlist_menu import (
     PLAYLIST_PREFIX,
     MenuEntry,
-    MenuPage,
     build_menu,
 )
 
@@ -20,7 +19,7 @@ CANCEL_PREFIX = 'cancel:'
 
 def build_playlist_keyboard(
     entries: list[MenuEntry], url_id: str, page: int, language: str
-) -> tuple[InlineKeyboardMarkup, MenuPage]:
+) -> InlineKeyboardMarkup:
     """Render one page of a playlist as buttons.
 
     The layout is decided in `playlist_menu`, which knows nothing of Pyrogram
@@ -29,17 +28,17 @@ def build_playlist_keyboard(
     menu = build_menu(
         entries,
         url_id,
-        page,
         cancel_label=t('format.button_cancel', language),
+        cancel_data=f'{CANCEL_PREFIX}{url_id}',
+        page=page,
     )
-    markup = InlineKeyboardMarkup([
+    return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(button.label, callback_data=button.data)
             for button in row
         ]
         for row in menu.rows
     ])
-    return markup, menu
 
 
 def build_media_type_keyboard(

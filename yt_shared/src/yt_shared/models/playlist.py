@@ -23,9 +23,5 @@ class Playlist(Base, Timestamp):
     id = sa.Column(UUIDType(binary=False), primary_key=True, default=uuid.uuid4)
     # Names the pending download whose keyboard this belongs to.
     url_id = sa.Column(sa.String, nullable=False, unique=True, index=True)
-    title = sa.Column(sa.String, nullable=False)
     entries = sa.Column(sa.JSON, nullable=False)
-    # What the source claimed, before the limit and the unusable ones were
-    # dropped, so the menu can say "10 of 250" rather than implying 10.
-    total = sa.Column(sa.Integer, nullable=False)
     added_at = sa.Column(sa.DateTime, nullable=False, index=True)

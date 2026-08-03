@@ -7,10 +7,9 @@ does not give a full address. Each of those has a different right answer, and
 getting them wrong shows up as a button that does nothing.
 """
 
-from worker.core.playlist import (
-    MAX_ENTRIES,
-    entries_from_info,
-)
+from yt_shared.schemas.playlist import MAX_PLAYLIST_ENTRIES
+
+from worker.core.playlist import entries_from_info
 
 
 def entry(url: str = 'https://example.com/v', title: str = 'A track') -> dict:
@@ -117,7 +116,7 @@ class TestLimit:
     def test_a_long_playlist_is_cut(self) -> None:
         info = {'entries': [entry(title=f'#{i}') for i in range(250)]}
         playlist = entries_from_info(info)
-        assert len(playlist.entries) == MAX_ENTRIES
+        assert len(playlist.entries) == MAX_PLAYLIST_ENTRIES
         assert playlist.total == 250
         assert playlist.is_truncated
 

@@ -1,134 +1,70 @@
-"""Telling a link to one thing apart from a link to a great many.
+"""Reads and writes enumerated playlist menus, dropping the ones gone stale.
 
-The worker runs yt-dlp with ``--no-playlist --playlist-items 1:1``
-(``app_worker/ytdl_opts/default.py``), so a link to a playlist, an album or a
-channel produces exactly one file and says nothing about the rest. That is the
-worst shape a wrong answer can take: it looks like a success. Somebody who
-pastes a 40-track album and gets one track back has no way to tell whether the
-album had one track or the bot quietly dropped 39.
+The same shape as :mod:`bot.core.pending_downloads`: the policy lives here, the
+store only reads and writes, and a store that cannot be read reads as "no menu"
+rather than as a traceback in front of whoever pressed the button.
 
-This does not add playlist support — downloading everything behind such a link
-is a different feature, and on this host not obviously a wanted one. It only
-makes the bot say what it is about to do.
-
-Detection is from the URL alone, deliberately. Asking yt-dlp would be accurate
-but costs a network round trip per pasted link before the user has even chosen a
-format, and on YouTube that is the request that draws the bot check. A URL is
-free and wrong only at the edges, where the cost is a line of text either shown
-or not shown.
-
-Note what is *not* flagged: ``watch?v=…&list=…``, the shape you get from copying
-the address bar while a playlist plays. ``--no-playlist`` treats that as the one
-video, which is what was asked for, so warning about it would put a notice on
-most YouTube links anyone ever sends.
+The TTL is six hours, against the pending downloads' two days. A menu is read
+within minutes of being opened or not at all, and its contents go stale — a
+playlist gains and loses items — so an old answer is worse than none.
 """
 
-from typing import Final
-from urllib.parse import urlparse
+import datetime
+import logging
+from typing import TYPE_CHECKING, Final
 
-_YOUTUBE_HOSTS: Final[frozenset[str]] = frozenset({
-    'youtube.com',
-    'm.youtube.com',
-    'music.youtube.com',
-    'youtu.be',
-})
-# Channel and feed pages. A handle (`/@someone`) is matched separately.
-_YOUTUBE_COLLECTION_SEGMENTS: Final[frozenset[str]] = frozenset({
-    'channel',
-    'c',
-    'user',
-    'feed',
-})
+if TYPE_CHECKING:
+    from bot.core.playlist_menu import MenuEntry
+    from bot.core.playlist_store import PlaylistStore
 
-_SOUNDCLOUD_HOSTS: Final[frozenset[str]] = frozenset({
-    'soundcloud.com',
-    'm.soundcloud.com',
-    'on.soundcloud.com',
-})
-# `/<user>/<tab>` pages, as opposed to `/<user>/<track>`.
-_SOUNDCLOUD_TABS: Final[frozenset[str]] = frozenset({
-    'albums',
-    'likes',
-    'popular-tracks',
-    'reposts',
-    'sets',
-    'tracks',
-})
-
-_VIMEO_COLLECTION_SEGMENTS: Final[frozenset[str]] = frozenset({
-    'album',
-    'channels',
-    'groups',
-    'showcase',
-})
-
-_BANDCAMP_COLLECTION_SEGMENTS: Final[frozenset[str]] = frozenset({
-    'album',
-    'music',
-})
+TTL: Final[datetime.timedelta] = datetime.timedelta(hours=6)
 
 
-def _segments(path: str) -> list[str]:
-    return [segment for segment in path.split('/') if segment]
+class Playlists:
+    def __init__(self, store: 'PlaylistStore') -> None:
+        self._log = logging.getLogger(self.__class__.__name__)
+        self._store = store
 
+    @staticmethod
+    def _cutoff() -> datetime.datetime:
+        return datetime.datetime.now(datetime.UTC).replace(tzinfo=None) - TTL
 
-def _is_youtube_collection(segments: list[str]) -> bool:
-    if not segments:
-        return False
-    first = segments[0]
-    return (
-        first == 'playlist'
-        or first.startswith('@')
-        or first in _YOUTUBE_COLLECTION_SEGMENTS
-    )
+    async def save(self, url_id: str, entries: list['MenuEntry']) -> None:
+        await self._store.save(url_id, entries)
 
+    async def get(self, url_id: str) -> list['MenuEntry'] | None:
+        """Fetch the entries behind a menu, or ``None`` if it is not usable."""
+        try:
+            found = await self._store.load(url_id)
+        except Exception:
+            # A menu that cannot be read is a menu that has expired, as far as
+            # the person pressing the button is concerned. Far better than an
+            # unanswered callback, which spins until the client gives up.
+            self._log.exception('Could not read the playlist %s', url_id)
+            return None
 
-def _is_soundcloud_collection(segments: list[str]) -> bool:
-    if 'sets' in segments:
-        # `/<user>/sets/<name>` is a playlist; `/<user>/sets` is all of them.
-        return True
-    if len(segments) == 1:
-        # A bare artist page. `/discover` and `/search` land here too, and
-        # neither is a single track either.
-        return True
-    return len(segments) == 2 and segments[1] in _SOUNDCLOUD_TABS  # noqa: PLR2004
+        if found is None:
+            return None
+        if found.added_at < self._cutoff():
+            # Evicting on access alone never reaches a menu nobody returns to,
+            # which is why the sweep exists as well.
+            self._log.debug('Playlist %s has gone stale', url_id)
+            await self._forget(url_id)
+            return None
+        return found.entries
 
+    async def remove(self, url_id: str) -> None:
+        """Drop a menu that has served its purpose, or been abandoned."""
+        await self._forget(url_id)
 
-def _is_vimeo_collection(segments: list[str]) -> bool:
-    return bool(segments) and segments[0] in _VIMEO_COLLECTION_SEGMENTS
+    async def _forget(self, url_id: str) -> None:
+        try:
+            await self._store.delete(url_id)
+        except Exception:
+            # Worth a line, not worth failing the thing that asked: the sweep
+            # will get it, and at worst a stale row waits six hours.
+            self._log.exception('Could not drop the playlist %s', url_id)
 
-
-def _is_bandcamp_collection(segments: list[str]) -> bool:
-    # Bandcamp gives every artist a subdomain, so the bare host is their page
-    # and `/track/<name>` is the only single-item shape there is.
-    return not segments or segments[0] in _BANDCAMP_COLLECTION_SEGMENTS
-
-
-def is_collection_link(url: str) -> bool:
-    """Whether this link points at many items, of which one will be downloaded.
-
-    Unrecognised hosts are answered ``False``: silence is the behaviour this
-    fork has always had, and a warning on an ordinary link is worse than no
-    warning on an unusual one.
-    """
-    try:
-        parsed = urlparse(url.strip())
-        # `hostname` rather than `netloc`: it lower-cases, and drops the port
-        # and any credentials, all of which would otherwise defeat the lookups.
-        host = (parsed.hostname or '').removeprefix('www.')
-    except ValueError:
-        # A string that does not parse is not this function's problem — it will
-        # fail later, with a message about the real cause.
-        return False
-
-    segments = _segments(parsed.path)
-
-    if host in _YOUTUBE_HOSTS:
-        return _is_youtube_collection(segments)
-    if host in _SOUNDCLOUD_HOSTS:
-        return _is_soundcloud_collection(segments)
-    if host == 'vimeo.com':
-        return _is_vimeo_collection(segments)
-    if host == 'bandcamp.com' or host.endswith('.bandcamp.com'):
-        return _is_bandcamp_collection(segments)
-    return False
+    async def sweep(self) -> int:
+        """Drop every menu past its time, and say how many that was."""
+        return await self._store.delete_older_than(self._cutoff())

@@ -3,10 +3,11 @@
 import asyncio
 from collections.abc import Generator
 from datetime import UTC, datetime
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from pyrogram.enums import ChatType
 from pyrogram.types import Message
+from yt_shared.constants import REMOVE_QUERY_PARAMS_HOSTS
 
 from bot.core.config import settings
 from bot.core.schemas import AnonymousUserSchema, ConfigSchema, UserSchema
@@ -75,6 +76,18 @@ def split_telegram_message(
 
 def can_remove_url_params(url: str, matching_hosts: set[str]) -> bool:
     return urlparse(url).netloc in matching_hosts
+
+
+def strip_url_params(url: str) -> str:
+    """Drop the tracking parameters some hosts append to their own links.
+
+    Lives next to the predicate it pairs with, because the two are one rule and
+    were previously spelled out separately in `service.py` and `callbacks.py` —
+    adding a host to REMOVE_QUERY_PARAMS_HOSTS should not need finding both.
+    """
+    if can_remove_url_params(url=url, matching_hosts=REMOVE_QUERY_PARAMS_HOSTS):
+        return urljoin(url, urlparse(url).path)
+    return url
 
 
 def is_user_upload_silent(

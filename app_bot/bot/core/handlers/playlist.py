@@ -38,17 +38,16 @@ class PlaylistResultHandler:
             )
             return
 
-        await self._bot.playlists.save(
-            payload.url_id, payload.title, entries, payload.total
-        )
-        markup, menu = build_playlist_keyboard(entries, payload.url_id, 0, language)
+        await self._bot.playlists.save(payload.url_id, entries)
         await self._edit(
             payload,
             self._header(payload.title, len(entries), payload.total, language),
-            reply_markup=markup,
+            reply_markup=build_playlist_keyboard(entries, payload.url_id, 0, language),
         )
         self._log.info(
-            'Offered %d of %d entries for %s', len(menu.entries), payload.total,
+            'Offered %d of %d entries for %s',
+            len(entries),
+            payload.total,
             payload.url_id,
         )
 
@@ -97,9 +96,12 @@ class PlaylistResultHandler:
                 parse_mode=ParseMode.HTML,
                 reply_markup=reply_markup,
             )
-        except Exception:
+        except Exception as err:
             # The message may have been deleted while the worker was reading
-            # the playlist. Nothing to recover, and nothing worth failing over.
-            self._log.exception(
-                'Could not show the playlist on message %s', payload.ack_message_id
+            # the playlist. Logged the way the other ack-message editors log it
+            # — quietly, because a traceback for "the user deleted it" is noise.
+            self._log.debug(
+                'Could not show the playlist on message %s: %s',
+                payload.ack_message_id,
+                err,
             )

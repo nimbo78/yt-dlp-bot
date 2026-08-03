@@ -1,19 +1,19 @@
+import asyncio
 import html
 import logging
 import re
 from itertools import product
 from typing import ClassVar, Final
-from urllib.parse import urljoin, urlparse
 
 from pyrogram.enums import ParseMode
 from pyrogram.types import CallbackQuery, Message
-from yt_shared.constants import REMOVE_QUERY_PARAMS_HOSTS
 from yt_shared.enums import DownMediaType, TaskSource, TelegramChatType, VideoQuality
 from yt_shared.rabbit.publisher import RmqPublisher
 from yt_shared.schemas.media import InbMediaPayload
 from yt_shared.schemas.playlist import PlaylistRequestPayload
 
 from bot.bot.client import VideoBotClient
+from bot.core.collection_links import is_collection_link
 from bot.core.i18n import t
 from bot.core.keyboards import (
     CANCEL_PREFIX,
@@ -26,14 +26,12 @@ from bot.core.keyboards import (
 from bot.core.pending_downloads import PendingDownload, generate_url_id
 from bot.core.playlist_menu import (
     PLAYLIST_ITEM_PREFIX,
-    PLAYLIST_NOOP,
     PLAYLIST_PAGE_PREFIX,
     PLAYLIST_PREFIX,
     find_entry,
 )
-from bot.core.playlists import is_collection_link
 from bot.core.schemas import UserSchema
-from bot.core.utils import bold, can_remove_url_params, get_user_id
+from bot.core.utils import bold, get_user_id, strip_url_params
 
 
 class TelegramCallback:
@@ -134,7 +132,7 @@ class TelegramCallback:
     ) -> None:
         """Show inline keyboard for format selection."""
         from_user_id = message.from_user.id if message.from_user else None
-        processed_url = self._preprocess_url(url)
+        processed_url = strip_url_params(url)
 
         # The worker downloads one item and says nothing about the rest, so a
         # link to a collection has to say it here — before a format is chosen,
@@ -174,11 +172,37 @@ class TelegramCallback:
         await client.pending_downloads.add(url_id, pending)
 
     @staticmethod
-    def _preprocess_url(url: str) -> str:
-        """Drop the tracking parameters some hosts append to their own links."""
-        if can_remove_url_params(url=url, matching_hosts=REMOVE_QUERY_PARAMS_HOSTS):
-            return urljoin(url, urlparse(url).path)
-        return url
+    def _split_indexed(data: str, prefix: str) -> tuple[str, int | None]:
+        """Split `<prefix><url_id>:<number>` into its two halves.
+
+        `rpartition` rather than `split`, because a url_id contains a colon-free
+        underscore but nothing guarantees that forever. A number that will not
+        parse comes back as ``None`` rather than raising: it means a build that
+        no longer exists drew the button.
+        """
+        url_id, _, number = data.removeprefix(prefix).rpartition(':')
+        try:
+            return url_id, int(number)
+        except ValueError:
+            return url_id, None
+
+    async def _require_pending(
+        self,
+        client: VideoBotClient,
+        callback_query: CallbackQuery,
+        url_id: str,
+        language: str,
+    ) -> PendingDownload | None:
+        """Fetch the choice this button belongs to, or say it has expired.
+
+        Every button here needs the same thing and answers its absence the same
+        way, including removing the keyboard that can no longer do anything.
+        """
+        pending = await client.pending_downloads.get(url_id)
+        if pending is None:
+            await callback_query.answer(t('format.session_expired', language))
+            await callback_query.message.delete()
+        return pending
 
     async def on_callback_query(
         self, client: VideoBotClient, callback_query: CallbackQuery
@@ -192,14 +216,7 @@ class TelegramCallback:
             callback_query.message.chat.id if callback_query.message else None,
         )
 
-        # Checked before MEDIA_TYPE_PREFIX has a chance: nothing here shares a
-        # prefix today, but 'pl:' and 'pp:' are one character from each other
-        # and the order is the only thing keeping that honest.
-        if data == PLAYLIST_NOOP:
-            # The page counter. It is a button because a keyboard row has
-            # nowhere else to put one, and it does nothing on purpose.
-            await callback_query.answer()
-        elif data.startswith(PLAYLIST_ITEM_PREFIX):
+        if data.startswith(PLAYLIST_ITEM_PREFIX):
             await self._handle_playlist_item(client, callback_query, language)
         elif data.startswith(PLAYLIST_PAGE_PREFIX):
             await self._handle_playlist_page(client, callback_query, language)
@@ -211,16 +228,19 @@ class TelegramCallback:
             await self._handle_download_selection(client, callback_query, language)
         elif data.startswith(CANCEL_PREFIX):
             await self._handle_cancel(client, callback_query, language)
+        else:
+            # The page counter lands here, and so does callback data from a
+            # build that no longer exists. Both need answering: an unanswered
+            # query leaves the button spinning until the client gives up.
+            await callback_query.answer()
 
     async def _handle_playlist_request(
         self, client: VideoBotClient, callback_query: CallbackQuery, language: str
     ) -> None:
         """Ask the worker to list what is behind a collection link."""
         url_id = callback_query.data.removeprefix(PLAYLIST_PREFIX)
-        pending = await client.pending_downloads.get(url_id)
-        if not pending:
-            await callback_query.answer(t('format.session_expired', language))
-            await callback_query.message.delete()
+        pending = await self._require_pending(client, callback_query, url_id, language)
+        if pending is None:
             return
 
         payload = PlaylistRequestPayload(
@@ -245,22 +265,18 @@ class TelegramCallback:
         self, client: VideoBotClient, callback_query: CallbackQuery, language: str
     ) -> None:
         """Turn to another page of an already-read playlist."""
-        url_id, _, page_str = callback_query.data.removeprefix(
-            PLAYLIST_PAGE_PREFIX
-        ).rpartition(':')
-        try:
-            page = int(page_str)
-        except ValueError:
+        url_id, page = self._split_indexed(callback_query.data, PLAYLIST_PAGE_PREFIX)
+        if page is None:
             # A malformed page number is not worth a database read.
             await callback_query.answer(t('format.invalid_selection', language))
             return
 
-        playlist = await client.playlists.load(url_id)
-        if playlist is None:
+        entries = await client.playlists.get(url_id)
+        if entries is None:
             await callback_query.answer(t('playlist.expired', language))
             return
 
-        markup, _ = build_playlist_keyboard(playlist.entries, url_id, page, language)
+        markup = build_playlist_keyboard(entries, url_id, page, language)
         try:
             await callback_query.edit_message_reply_markup(reply_markup=markup)
         except Exception:
@@ -280,34 +296,35 @@ class TelegramCallback:
         format, quality, cache, download. Nothing downstream learns that a
         playlist was involved.
         """
-        url_id, _, index_str = callback_query.data.removeprefix(
-            PLAYLIST_ITEM_PREFIX
-        ).rpartition(':')
-        pending = await client.pending_downloads.get(url_id)
+        url_id, index = self._split_indexed(callback_query.data, PLAYLIST_ITEM_PREFIX)
+        if index is None:
+            await callback_query.answer(t('format.invalid_selection', language))
+            return
+
+        # Two independent reads, so they overlap: each is a pool checkout and a
+        # round trip, and Postgres is competing for memory on the same host.
+        pending, entries = await asyncio.gather(
+            client.pending_downloads.get(url_id), client.playlists.get(url_id)
+        )
         if not pending:
             await callback_query.answer(t('format.session_expired', language))
             await callback_query.message.delete()
             return
-
-        playlist = await client.playlists.load(url_id)
-        if playlist is None:
+        if entries is None:
             await callback_query.answer(t('playlist.expired', language))
             return
 
-        try:
-            entry = find_entry(playlist.entries, int(index_str))
-        except ValueError:
-            entry = None
+        entry = find_entry(entries, index)
         if entry is None:
             await callback_query.answer(t('format.invalid_selection', language))
             return
 
-        pending.url = self._preprocess_url(entry.url)
+        pending.url = strip_url_params(entry.url)
         pending.original_url = entry.url
         await client.pending_downloads.add(url_id, pending)
         # The menu has done its job; keeping it invites a second pick that
         # would silently replace the first.
-        await client.playlists.delete(url_id)
+        await client.playlists.remove(url_id)
 
         await callback_query.message.edit_text(
             # Escaped: the URL comes from the site, and an unescaped `&` or `<`
@@ -434,7 +451,9 @@ class TelegramCallback:
         language: str,
     ) -> None:
         """Start the download process."""
-        pending = await client.pending_downloads.remove(url_id)
+        pending, _ = await asyncio.gather(
+            client.pending_downloads.remove(url_id), client.playlists.remove(url_id)
+        )
         if not pending:
             await callback_query.answer(t('format.session_expired', language))
             await callback_query.message.delete()
@@ -553,7 +572,12 @@ class TelegramCallback:
     ) -> None:
         """Handle cancel button."""
         url_id = callback_query.data.removeprefix(CANCEL_PREFIX)
-        await client.pending_downloads.remove(url_id)
+        # The menu is keyed by the same id but has a lifetime of its own, so
+        # every way a choice ends has to take it along. Otherwise a cancelled
+        # playlist sits in the table for six hours waiting for the sweep.
+        await asyncio.gather(
+            client.pending_downloads.remove(url_id), client.playlists.remove(url_id)
+        )
 
         await callback_query.message.edit_text(
             text=t('format.cancelled', language),

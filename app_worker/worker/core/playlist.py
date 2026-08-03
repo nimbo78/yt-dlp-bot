@@ -12,15 +12,10 @@ returns entries, which means every one of those shapes is a test rather than
 something discovered in production.
 """
 
-import logging
 from dataclasses import dataclass
 from typing import Any, Final
 
-_log = logging.getLogger(__name__)
-
-# What the bot can reasonably show and a small host can reasonably enumerate.
-# A channel with ten thousand videos is not a menu.
-MAX_ENTRIES: Final[int] = 100
+from yt_shared.schemas.playlist import MAX_PLAYLIST_ENTRIES, PlaylistEntryPayload
 
 # yt-dlp writes these in the title when it could not read the entry itself.
 _UNREADABLE_TITLES: Final[frozenset[str]] = frozenset({
@@ -31,18 +26,9 @@ _UNREADABLE_TITLES: Final[frozenset[str]] = frozenset({
 
 
 @dataclass(frozen=True)
-class PlaylistEntry:
-    """One offerable item: a link, and something to write on the button."""
-
-    index: int
-    title: str
-    url: str
-
-
-@dataclass(frozen=True)
 class Playlist:
     title: str
-    entries: list[PlaylistEntry]
+    entries: list[PlaylistEntryPayload]
     # How many the source claimed, before the limit and the skipping. Shown so
     # "10 of 250" is not silently rendered as "10".
     total: int
@@ -77,7 +63,9 @@ def _entry_title(entry: dict[str, Any], index: int) -> str | None:
     return title.strip()
 
 
-def entries_from_info(info: dict[str, Any], limit: int = MAX_ENTRIES) -> Playlist:
+def entries_from_info(
+    info: dict[str, Any], limit: int = MAX_PLAYLIST_ENTRIES
+) -> Playlist:
     """Read a flat extraction into an offerable list.
 
     Anything unusable is skipped rather than raised over: one dead item in a
@@ -90,7 +78,7 @@ def entries_from_info(info: dict[str, Any], limit: int = MAX_ENTRIES) -> Playlis
         # caller decides what to do with an empty playlist.
         return Playlist(title=_playlist_title(info), entries=[], total=0)
 
-    entries: list[PlaylistEntry] = []
+    entries: list[PlaylistEntryPayload] = []
     for position, entry in enumerate(raw, start=1):
         if len(entries) >= limit:
             break
@@ -103,7 +91,9 @@ def entries_from_info(info: dict[str, Any], limit: int = MAX_ENTRIES) -> Playlis
         title = _entry_title(entry, position)
         if title is None:
             continue
-        entries.append(PlaylistEntry(index=position, title=title, url=url))
+        entries.append(
+            PlaylistEntryPayload(index=position, title=title, url=url)
+        )
 
     return Playlist(title=_playlist_title(info), entries=entries, total=len(raw))
 
