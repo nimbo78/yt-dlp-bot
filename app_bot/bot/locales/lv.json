@@ -37,7 +37,18 @@
     "header_truncated": "📋 <b>{title}</b>\n\nParādīts {shown} no {total}. Izvēlieties vienu:",
     "empty": "🤷 <b>Nav ko piedāvāt</b>\n\nSaite ved uz krājumu, bet no tā neko nevar lejupielādēt.",
     "failed": "🛑 <b>Neizdevās nolasīt atskaņošanas sarakstu</b>\n\nVietne neteica, kāpēc. Pamēģiniet saiti pēc brīža vēlreiz.",
-    "expired": "Šis saraksts vairs nav pieejams — nosūtiet saiti vēlreiz"
+    "expired": "Šis saraksts vairs nav pieejams — nosūtiet saiti vēlreiz",
+    "button_select_all": "✅ Visi",
+    "button_clear": "✖️ Neviens",
+    "button_next": "⬇️ Tālāk ({count})",
+    "too_many": "Ne vairāk kā {limit} vienlaikus",
+    "capped": "Atlasīti pirmie {limit}",
+    "nothing_selected": "Nekas nav atzīmēts",
+    "chosen": "📋 <b>Atlasīts: {count}</b>\n\nKo lejupielādēt un kādā kvalitātē?",
+    "queueing": "⏳ <b>Ievietoju rindā: {count}…</b>",
+    "queued": "✅ <b>Rindā: {count}</b>\n\nTiks lejupielādēti cits pēc cita, katram sava ziņa.",
+    "queued_some": "⚠️ <b>Rindā {count} no {total}</b>\n\nPārējos neizdevās nodot.",
+    "item_queued": "⏳ <b>Rindā</b> — {index}. {title}"
   },
 
   "progress": {

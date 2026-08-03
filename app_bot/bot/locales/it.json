@@ -37,7 +37,18 @@
     "header_truncated": "📋 <b>{title}</b>\n\nMostrati {shown} di {total}. Scegline uno:",
     "empty": "🤷 <b>Non c’è nulla da offrire</b>\n\nIl link porta a una raccolta, ma non contiene nulla di scaricabile.",
     "failed": "🛑 <b>Non sono riuscito a leggere la playlist</b>\n\nIl sito non ha detto perché. Riprova il link tra poco.",
-    "expired": "Questo elenco non è più disponibile — invia di nuovo il link"
+    "expired": "Questo elenco non è più disponibile — invia di nuovo il link",
+    "button_select_all": "✅ Tutti",
+    "button_clear": "✖️ Nessuno",
+    "button_next": "⬇️ Avanti ({count})",
+    "too_many": "Al massimo {limit} per volta",
+    "capped": "Selezionati i primi {limit}",
+    "nothing_selected": "Non hai selezionato nulla",
+    "chosen": "📋 <b>{count} selezionati</b>\n\nCosa scarico, e con che qualità?",
+    "queueing": "⏳ <b>Mando in coda {count}…</b>",
+    "queued": "✅ <b>{count} in coda</b>\n\nSi scaricano uno dopo l’altro, ognuno con il suo messaggio.",
+    "queued_some": "⚠️ <b>{count} di {total} in coda</b>\n\nIl resto non è stato inviato.",
+    "item_queued": "⏳ <b>In coda</b> — {index}. {title}"
   },
 
   "progress": {

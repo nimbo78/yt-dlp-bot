@@ -25,10 +25,17 @@ from bot.core.keyboards import (
 )
 from bot.core.pending_downloads import PendingDownload, generate_url_id
 from bot.core.playlist_menu import (
+    MAX_SELECTED,
+    PLAYLIST_ALL_PREFIX,
     PLAYLIST_ITEM_PREFIX,
+    PLAYLIST_NEXT_PREFIX,
     PLAYLIST_PAGE_PREFIX,
     PLAYLIST_PREFIX,
     find_entry,
+    select_all,
+    selected_entries,
+    toggle,
+    truncate_label,
 )
 from bot.core.schemas import UserSchema
 from bot.core.utils import bold, get_user_id, strip_url_params
@@ -221,6 +228,10 @@ class TelegramCallback:
             await self._handle_playlist_item(client, callback_query, language)
         elif data.startswith(PLAYLIST_PAGE_PREFIX):
             await self._handle_playlist_page(client, callback_query, language)
+        elif data.startswith(PLAYLIST_ALL_PREFIX):
+            await self._handle_playlist_select_all(client, callback_query, language)
+        elif data.startswith(PLAYLIST_NEXT_PREFIX):
+            await self._handle_playlist_next(client, callback_query, language)
         elif data.startswith(PLAYLIST_PREFIX):
             await self._handle_playlist_request(client, callback_query, language)
         elif data.startswith(MEDIA_TYPE_PREFIX):
@@ -272,12 +283,14 @@ class TelegramCallback:
             await callback_query.answer(t('format.invalid_selection', language))
             return
 
-        entries = await client.playlists.get(url_id)
-        if entries is None:
+        playlist = await client.playlists.load(url_id)
+        if playlist is None:
             await callback_query.answer(t('playlist.expired', language))
             return
 
-        markup = build_playlist_keyboard(entries, url_id, page, language)
+        markup = build_playlist_keyboard(
+            playlist.entries, url_id, page, language, playlist.selected
+        )
         try:
             await callback_query.edit_message_reply_markup(reply_markup=markup)
         except Exception:
@@ -290,50 +303,126 @@ class TelegramCallback:
     async def _handle_playlist_item(
         self, client: VideoBotClient, callback_query: CallbackQuery, language: str
     ) -> None:
-        """Take one item out of the playlist and treat it as an ordinary link.
-
-        The pending download is rewritten to point at the chosen entry, which
-        puts the rest of this on the path every other link already takes:
-        format, quality, cache, download. Nothing downstream learns that a
-        playlist was involved.
-        """
+        """Tick or untick one entry."""
         url_id, index = self._split_indexed(callback_query.data, PLAYLIST_ITEM_PREFIX)
         if index is None:
             await callback_query.answer(t('format.invalid_selection', language))
             return
 
-        # Two independent reads, so they overlap: each is a pool checkout and a
-        # round trip, and Postgres is competing for memory on the same host.
-        pending, entries = await asyncio.gather(
-            client.pending_downloads.get(url_id), client.playlists.get(url_id)
-        )
-        if not pending:
-            await callback_query.answer(t('format.session_expired', language))
-            await callback_query.message.delete()
-            return
-        if entries is None:
+        playlist = await client.playlists.load(url_id)
+        if playlist is None:
             await callback_query.answer(t('playlist.expired', language))
             return
-
-        entry = find_entry(entries, index)
-        if entry is None:
+        if find_entry(playlist.entries, index) is None:
             await callback_query.answer(t('format.invalid_selection', language))
             return
 
-        pending.url = strip_url_params(entry.url)
-        pending.original_url = entry.url
-        await client.pending_downloads.add(url_id, pending)
-        # The menu has done its job; keeping it invites a second pick that
-        # would silently replace the first.
-        await client.playlists.remove(url_id)
+        selected = toggle(playlist.selected, index)
+        if selected == playlist.selected:
+            # `toggle` returns the set unchanged when the cap is reached, which
+            # is the only way to tell a refusal from a no-op.
+            await callback_query.answer(
+                t('playlist.too_many', language, limit=MAX_SELECTED)
+            )
+            return
+
+        await client.playlists.set_selected(url_id, selected)
+        await self._redraw(client, callback_query, url_id, playlist.entries, selected)
+
+    async def _handle_playlist_select_all(
+        self, client: VideoBotClient, callback_query: CallbackQuery, language: str
+    ) -> None:
+        """Tick everything that fits, or clear the lot."""
+        url_id, flag = self._split_indexed(
+            callback_query.data, PLAYLIST_ALL_PREFIX
+        )
+        if flag is None:
+            await callback_query.answer(t('format.invalid_selection', language))
+            return
+
+        playlist = await client.playlists.load(url_id)
+        if playlist is None:
+            await callback_query.answer(t('playlist.expired', language))
+            return
+
+        selected = select_all(playlist.entries) if flag else frozenset()
+        await client.playlists.set_selected(url_id, selected)
+        if flag and len(selected) < len(playlist.entries):
+            await callback_query.answer(
+                t('playlist.capped', language, limit=MAX_SELECTED)
+            )
+        await self._redraw(client, callback_query, url_id, playlist.entries, selected)
+
+    async def _redraw(
+        self,
+        client: VideoBotClient,
+        callback_query: CallbackQuery,
+        url_id: str,
+        entries: list,
+        selected: frozenset[int],
+    ) -> None:
+        """Put the ticks that were just changed back on screen.
+
+        The page is read off the message rather than carried in the callback
+        data, which has no room for it: the keyboard on screen already knows
+        which page it is showing.
+        """
+        language = client.language_for(
+            callback_query.from_user.id if callback_query.from_user else None,
+            callback_query.message.chat.id if callback_query.message else None,
+        )
+        page = self._page_on_screen(callback_query, url_id)
+        markup = build_playlist_keyboard(entries, url_id, page, language, selected)
+        try:
+            await callback_query.edit_message_reply_markup(reply_markup=markup)
+        except Exception:
+            self._log.debug('Could not redraw the menu for %s', url_id)
+        await callback_query.answer()
+
+    @staticmethod
+    def _page_on_screen(callback_query: CallbackQuery, url_id: str) -> int:
+        """Work out which page the keyboard being pressed is showing.
+
+        Read back from the navigation buttons it already carries. Sending the
+        page in every entry's callback data would cost bytes the 64-byte budget
+        does not have to spare, and holding it server-side would be one more
+        thing to keep in step with what is on screen.
+        """
+        markup = callback_query.message.reply_markup if callback_query.message else None
+        for row in getattr(markup, 'inline_keyboard', []) or []:
+            for button in row:
+                data = getattr(button, 'callback_data', None)
+                if data and data.startswith(f'{PLAYLIST_PAGE_PREFIX}{url_id}:'):
+                    # The "next" arrow points one past the current page, and
+                    # wraps, so the page is what it points at minus one.
+                    _, _, number = data.rpartition(':')
+                    try:
+                        return int(number) - 1
+                    except ValueError:
+                        return 0
+        return 0
+
+    async def _handle_playlist_next(
+        self, client: VideoBotClient, callback_query: CallbackQuery, language: str
+    ) -> None:
+        """Done ticking — ask for the format, then the quality, once for all."""
+        url_id = callback_query.data.removeprefix(PLAYLIST_NEXT_PREFIX)
+        pending = await self._require_pending(client, callback_query, url_id, language)
+        if pending is None:
+            return
+
+        playlist = await client.playlists.load(url_id)
+        if playlist is None:
+            await callback_query.answer(t('playlist.expired', language))
+            return
+
+        chosen = selected_entries(playlist.entries, playlist.selected)
+        if not chosen:
+            await callback_query.answer(t('playlist.nothing_selected', language))
+            return
 
         await callback_query.message.edit_text(
-            # Escaped: the URL comes from the site, and an unescaped `&` or `<`
-            # makes Telegram reject the edit rather than render it oddly.
-            text=(
-                f'{t("format.choose", language)}\n\n'
-                f'<code>{html.escape(entry.url)}</code>'
-            ),
+            text=t('playlist.chosen', language, count=len(chosen)),
             parse_mode=ParseMode.HTML,
             reply_markup=build_media_type_keyboard(url_id, language),
         )
@@ -452,12 +541,24 @@ class TelegramCallback:
         language: str,
     ) -> None:
         """Start the download process."""
-        pending, _ = await asyncio.gather(
-            client.pending_downloads.remove(url_id), client.playlists.remove(url_id)
+        pending, playlist = await asyncio.gather(
+            client.pending_downloads.remove(url_id), client.playlists.load(url_id)
         )
         if not pending:
             await callback_query.answer(t('format.session_expired', language))
             await callback_query.message.delete()
+            return
+        await client.playlists.remove(url_id)
+
+        chosen = (
+            selected_entries(playlist.entries, playlist.selected)
+            if playlist is not None
+            else []
+        )
+        if chosen:
+            await self._start_batch(
+                callback_query, pending, chosen, media_type, quality, language
+            )
             return
 
         # Build quality text for message
@@ -526,6 +627,102 @@ class TelegramCallback:
                 text=t('format.queue_failed', language),
                 parse_mode=ParseMode.HTML,
             )
+
+    async def _start_batch(  # noqa: PLR0913
+        self,
+        callback_query: CallbackQuery,
+        pending: PendingDownload,
+        chosen: list,
+        media_type: DownMediaType,
+        quality: VideoQuality,
+        language: str,
+    ) -> None:
+        """Queue every ticked entry at the one format and quality just chosen.
+
+        Each gets a status message of its own, and therefore its own task, which
+        is why none of the pipeline below the bot needed changing: the worker,
+        the task model and the progress path see a stream of ordinary single
+        downloads. The alternative — one message counting "3 of 10" — would have
+        meant teaching every one of those about batches.
+
+        Queued, not run: `MAX_SIMULTANEOUS_DOWNLOADS` decides how many actually
+        proceed at once, so a selection of twenty does not become twenty
+        concurrent downloads on a machine that cannot hold two.
+        """
+        await callback_query.message.edit_text(
+            text=t('playlist.queueing', language, count=len(chosen)),
+            parse_mode=ParseMode.HTML,
+        )
+        await callback_query.answer(t('format.started_toast', language))
+
+        queued = 0
+        for entry in chosen:
+            status = await self._queue_one(
+                callback_query, pending, entry, media_type, quality, language
+            )
+            queued += status
+
+        await callback_query.message.edit_text(
+            text=t(
+                'playlist.queued' if queued == len(chosen) else 'playlist.queued_some',
+                language,
+                count=queued,
+                total=len(chosen),
+            ),
+            parse_mode=ParseMode.HTML,
+        )
+
+    async def _queue_one(  # noqa: PLR0913
+        self,
+        callback_query: CallbackQuery,
+        pending: PendingDownload,
+        entry: object,
+        media_type: DownMediaType,
+        quality: VideoQuality,
+        language: str,
+    ) -> int:
+        """Post one entry's status message and queue it against that message.
+
+        Returns 1 when it was queued, so the caller can report how many of the
+        selection actually made it — a broker that refuses halfway through
+        should not be reported as a complete success.
+        """
+        title = html.escape(truncate_label(entry.title, limit=60))
+        try:
+            status = await callback_query.message.reply(
+                text=t('playlist.item_queued', language, index=entry.index,
+                       title=title),
+                parse_mode=ParseMode.HTML,
+                reply_to_message_id=pending.message_id,
+                disable_notification=True,
+            )
+        except Exception:
+            self._log.exception('Could not post a status message for %s', entry.url)
+            return 0
+
+        payload = InbMediaPayload(
+            url=strip_url_params(entry.url),
+            original_url=entry.url,
+            message_id=pending.message_id,
+            ack_message_id=status.id,
+            from_user_id=pending.from_user_id,
+            from_chat_id=pending.from_chat_id,
+            from_chat_type=pending.from_chat_type,
+            source=TaskSource.BOT,
+            save_to_storage=pending.save_to_storage,
+            download_media_type=media_type,
+            video_quality=quality,
+            custom_filename=None,
+            automatic_extension=False,
+        )
+        if await self._rmq_publisher.send_for_download(payload):
+            return 1
+
+        self._log.error('Failed to publish %s to message broker', entry.url)
+        await status.edit_text(
+            text=t('format.queue_failed', language), parse_mode=ParseMode.HTML
+        )
+        return 0
 
     async def _deliver_cached(
         self,

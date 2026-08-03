@@ -37,7 +37,18 @@
     "header_truncated": "📋 <b>{title}</b>\n\nMostrando {shown} de {total}. Elige uno:",
     "empty": "🤷 <b>No hay nada que ofrecer</b>\n\nEl enlace lleva a una colección, pero no contiene nada descargable.",
     "failed": "🛑 <b>No pude leer la lista</b>\n\nEl sitio no dijo por qué. Prueba el enlace otra vez en un momento.",
-    "expired": "Esta lista ya no está disponible — envía el enlace otra vez"
+    "expired": "Esta lista ya no está disponible — envía el enlace otra vez",
+    "button_select_all": "✅ Todos",
+    "button_clear": "✖️ Ninguno",
+    "button_next": "⬇️ Siguiente ({count})",
+    "too_many": "Como máximo {limit} a la vez",
+    "capped": "Seleccionados los primeros {limit}",
+    "nothing_selected": "No has marcado nada",
+    "chosen": "📋 <b>{count} seleccionados</b>\n\n¿Qué descargo, y en qué calidad?",
+    "queueing": "⏳ <b>Poniendo {count} en cola…</b>",
+    "queued": "✅ <b>{count} en cola</b>\n\nSe descargan uno tras otro, cada uno con su mensaje.",
+    "queued_some": "⚠️ <b>{count} de {total} en cola</b>\n\nEl resto no se pudo enviar.",
+    "item_queued": "⏳ <b>En cola</b> — {index}. {title}"
   },
 
   "progress": {

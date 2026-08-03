@@ -7,6 +7,7 @@ from bot.core.i18n import t
 from bot.core.playlist_menu import (
     PLAYLIST_PREFIX,
     MenuEntry,
+    MenuLabels,
     build_menu,
 )
 
@@ -18,7 +19,11 @@ CANCEL_PREFIX = 'cancel:'
 
 
 def build_playlist_keyboard(
-    entries: list[MenuEntry], url_id: str, page: int, language: str
+    entries: list[MenuEntry],
+    url_id: str,
+    page: int,
+    language: str,
+    selected: frozenset[int] = frozenset(),
 ) -> InlineKeyboardMarkup:
     """Render one page of a playlist as buttons.
 
@@ -28,9 +33,15 @@ def build_playlist_keyboard(
     menu = build_menu(
         entries,
         url_id,
-        cancel_label=t('format.button_cancel', language),
+        labels=MenuLabels(
+            cancel=t('format.button_cancel', language),
+            select_all=t('playlist.button_select_all', language),
+            clear_all=t('playlist.button_clear', language),
+            next_step=t('playlist.button_next', language),
+        ),
         cancel_data=f'{CANCEL_PREFIX}{url_id}',
         page=page,
+        selected=selected,
     )
     return InlineKeyboardMarkup([
         [

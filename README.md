@@ -123,8 +123,14 @@ the copy Telegram already holds.
 link to a collection yields one item. The keyboard says so, and offers a
 **Show the list** button: pressing it reads the collection — the index page
 only, nothing is downloaded — and lists what is in it, eight to a page, up to
-100 entries. Picking one downloads exactly that item, through the same format
-and quality steps as any other link.
+100 entries.
+
+Tick the ones you want, or use **All** / **None**, then **Next**. Choose the
+format and quality once, and every ticked entry is queued at it. Each gets a
+status message of its own, so they are as easy to follow as any single
+download, and they run at `MAX_SIMULTANEOUS_DOWNLOADS` at a time rather than all
+at once. At most 25 per go — a slip of the finger on a 500-video channel should
+stay cheap.
 
 Entries that cannot be opened are left out, so the numbers on the buttons follow
 the source rather than the list: item 3 stays 3 even if item 2 was a deleted

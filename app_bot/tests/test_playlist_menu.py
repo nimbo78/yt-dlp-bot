@@ -12,11 +12,15 @@ import pytest
 
 from bot.core.playlist_menu import (
     CALLBACK_DATA_LIMIT,
+    MAX_SELECTED,
     PAGE_SIZE,
     PLAYLIST_ITEM_PREFIX,
     PLAYLIST_NOOP,
     PLAYLIST_PAGE_PREFIX,
+    TICKED,
+    UNTICKED,
     MenuEntry,
+    MenuLabels,
     MenuPage,
     StoredPlaylist,
     build_menu,
@@ -26,6 +30,11 @@ from bot.core.playlist_menu import (
     find_entry,
     page_count,
     rows_to_entries,
+    rows_to_selection,
+    select_all,
+    selected_entries,
+    selection_to_rows,
+    toggle,
     truncate_label,
 )
 
@@ -37,11 +46,25 @@ def entries(count: int, start: int = 1) -> list[MenuEntry]:
     ]
 
 
-def menu(entries_, url_id: str = 'c_1', page: int = 0) -> MenuPage:
-    """`build_menu` with the two labels its caller always supplies."""
+LABELS = MenuLabels(
+    cancel='Cancel', select_all='All', clear_all='None', next_step='Next ({count})'
+)
+
+
+def menu(
+    entries_,
+    url_id: str = 'c_1',
+    page: int = 0,
+    selected: frozenset[int] = frozenset(),
+) -> MenuPage:
+    """`build_menu` with the labels and cancel data its caller always supplies."""
     return build_menu(
-        entries_, url_id, cancel_label='Cancel', cancel_data=f'cancel:{url_id}',
+        entries_,
+        url_id,
+        labels=LABELS,
+        cancel_data=f'cancel:{url_id}',
         page=page,
+        selected=selected,
     )
 
 
@@ -104,6 +127,112 @@ class TestPaging:
             assert page.rows[-1][0].data == 'cancel:c_1'
 
 
+class TestSelection:
+    def test_nothing_is_ticked_to_begin_with(self) -> None:
+        page = menu(entries(3))
+        assert all(b.label.startswith(UNTICKED) for row in item_rows(page) for b in row)
+
+    def test_a_ticked_entry_is_drawn_ticked(self) -> None:
+        page = menu(entries(3), selected=frozenset({2}))
+        labels = [row[0].label for row in item_rows(page)]
+        assert labels[0].startswith(UNTICKED)
+        assert labels[1].startswith(TICKED)
+
+    def test_the_next_button_appears_only_once_something_is_ticked(self) -> None:
+        """An always-present button that answers "nothing selected" is a button
+        that lies about being available."""
+        assert not any(
+            b.data.startswith('pn:') for row in menu(entries(3)).rows for b in row
+        )
+        page = menu(entries(3), selected=frozenset({1}))
+        nexts = [b for row in page.rows for b in row if b.data.startswith('pn:')]
+        assert [b.label for b in nexts] == ['Next (1)']
+
+    def test_the_count_on_the_next_button_is_the_whole_selection(self) -> None:
+        """Not just this page's share of it."""
+        page = menu(entries(20), selected=frozenset({1, 9, 17}), page=0)
+        nexts = [b for row in page.rows for b in row if b.data.startswith('pn:')]
+        assert nexts[0].label == 'Next (3)'
+
+    def test_bulk_buttons_are_offered(self) -> None:
+        page = menu(entries(3))
+        bulk = [b for row in page.rows for b in row if b.data.startswith('pa:')]
+        assert [b.data for b in bulk] == ['pa:c_1:1', 'pa:c_1:0']
+
+    def test_no_bulk_buttons_with_nothing_to_bulk(self) -> None:
+        page = menu([])
+        assert not any(b.data.startswith('pa:') for row in page.rows for b in row)
+
+
+class TestToggle:
+    def test_ticking_and_unticking(self) -> None:
+        assert toggle(frozenset(), 3) == frozenset({3})
+        assert toggle(frozenset({3}), 3) == frozenset()
+
+    def test_others_are_left_alone(self) -> None:
+        assert toggle(frozenset({1, 2}), 3) == frozenset({1, 2, 3})
+
+    def test_the_cap_refuses_by_returning_the_set_unchanged(self) -> None:
+        """Which is the only way the caller can tell a refusal from a no-op,
+        and therefore say so instead of dropping the press in silence."""
+        full = frozenset(range(1, MAX_SELECTED + 1))
+        assert toggle(full, MAX_SELECTED + 1) == full
+
+    def test_unticking_still_works_at_the_cap(self) -> None:
+        full = frozenset(range(1, MAX_SELECTED + 1))
+        assert toggle(full, 1) == full - {1}
+
+
+class TestSelectAll:
+    def test_everything_when_it_fits(self) -> None:
+        assert select_all(entries(5)) == frozenset({1, 2, 3, 4, 5})
+
+    def test_truncated_at_the_cap_rather_than_refused(self) -> None:
+        """Somebody pressing this on a 100-entry playlist wants as much as they
+        can have; the header says how many that was."""
+        chosen = select_all(entries(100))
+        assert len(chosen) == MAX_SELECTED
+        assert chosen == frozenset(range(1, MAX_SELECTED + 1))
+
+    def test_an_empty_playlist(self) -> None:
+        assert select_all([]) == frozenset()
+
+
+class TestSelectedEntries:
+    def test_in_playlist_order_not_set_order(self) -> None:
+        """These are queued one after another, and a set has no order."""
+        chosen = selected_entries(entries(10), frozenset({7, 2, 5}))
+        assert [e.index for e in chosen] == [2, 5, 7]
+
+    def test_indices_that_are_not_there_are_ignored(self) -> None:
+        assert selected_entries(entries(3), frozenset({99})) == []
+
+    def test_the_numbering_follows_the_source(self) -> None:
+        sparse = [
+            MenuEntry(index=1, title='a', url='u1'),
+            MenuEntry(index=4, title='b', url='u4'),
+        ]
+        assert [e.index for e in selected_entries(sparse, frozenset({4}))] == [4]
+
+
+class TestSelectionStorage:
+    def test_a_round_trip(self) -> None:
+        assert rows_to_selection(selection_to_rows(frozenset({3, 1, 2}))) == frozenset(
+            {1, 2, 3}
+        )
+
+    def test_stored_in_a_stable_order(self) -> None:
+        """So a rewrite does not churn the row for no reason."""
+        assert selection_to_rows(frozenset({5, 1, 3})) == [1, 3, 5]
+
+    def test_a_column_holding_something_else(self) -> None:
+        for rubbish in (None, 'nonsense', 42, {}):
+            assert rows_to_selection(rubbish) == frozenset()
+
+    def test_entries_that_are_not_numbers_are_skipped(self) -> None:
+        assert rows_to_selection([1, 'two', None, 3]) == frozenset({1, 3})
+
+
 class TestPageCountAndClamping:
     @pytest.mark.parametrize(
         ('count', 'expected'),
@@ -148,7 +277,13 @@ class TestLabels:
         assert truncate_label('word ' + 'x' * 50, limit=6) == 'word…'
 
     def test_the_label_carries_the_source_number(self) -> None:
-        assert entry_label(MenuEntry(index=7, title='Thing', url='u')) == '7. Thing'
+        label = entry_label(MenuEntry(index=7, title='Thing', url='u'))
+        assert label.endswith('7. Thing')
+        assert label.startswith(UNTICKED)
+
+    def test_a_ticked_entry_says_so(self) -> None:
+        entry = MenuEntry(index=1, title='Thing', url='u')
+        assert entry_label(entry, selected=True).startswith(TICKED)
 
 
 class TestCallbackDataBudget:

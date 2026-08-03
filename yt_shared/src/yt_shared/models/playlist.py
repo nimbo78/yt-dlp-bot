@@ -24,4 +24,8 @@ class Playlist(Base, Timestamp):
     # Names the pending download whose keyboard this belongs to.
     url_id = sa.Column(sa.String, nullable=False, unique=True, index=True)
     entries = sa.Column(sa.JSON, nullable=False)
+    # Which entries are ticked. Nullable because a row written before
+    # the checkboxes existed has no answer, and an empty list is a
+    # different statement from "never asked".
+    selected = sa.Column(sa.JSON, nullable=True)
     added_at = sa.Column(sa.DateTime, nullable=False, index=True)

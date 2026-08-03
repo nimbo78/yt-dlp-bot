@@ -18,11 +18,15 @@ from bot.core.playlist_menu import (
     StoredPlaylist,
     entries_to_rows,
     rows_to_entries,
+    rows_to_selection,
+    selection_to_rows,
 )
 
 
 class PlaylistStore(Protocol):
     async def save(self, url_id: str, entries: list[MenuEntry]) -> None: ...
+
+    async def set_selected(self, url_id: str, selected: frozenset[int]) -> None: ...
 
     async def load(self, url_id: str) -> StoredPlaylist | None: ...
 
@@ -36,10 +40,19 @@ class PostgresPlaylistStore:
         values = {
             'url_id': url_id,
             'entries': entries_to_rows(entries),
+            # A fresh enumeration starts with nothing ticked, and replaces any
+            # ticks a previous one for the same message had.
+            'selected': [],
             'added_at': datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
         }
         async for db in get_db():
             await PlaylistRepository(db).save(values)
+
+    async def set_selected(self, url_id: str, selected: frozenset[int]) -> None:
+        async for db in get_db():
+            await PlaylistRepository(db).set_selected(
+                url_id, selection_to_rows(selected)
+            )
 
     async def load(self, url_id: str) -> StoredPlaylist | None:
         async for db in get_db():
@@ -47,7 +60,9 @@ class PostgresPlaylistStore:
             if row is None:
                 return None
             return StoredPlaylist(
-                entries=rows_to_entries(row.entries), added_at=row.added_at
+                entries=rows_to_entries(row.entries),
+                added_at=row.added_at,
+                selected=rows_to_selection(row.selected),
             )
         return None
 

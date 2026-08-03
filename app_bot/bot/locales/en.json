@@ -37,7 +37,18 @@
     "header_truncated": "📋 <b>{title}</b>\n\nShowing {shown} of {total}. Pick one:",
     "empty": "🤷 <b>Nothing to offer here</b>\n\nThe link is a collection, but nothing in it can be downloaded.",
     "failed": "🛑 <b>Could not read the playlist</b>\n\nThe site did not say why. Try the link again in a moment.",
-    "expired": "This list is no longer available — send the link again"
+    "expired": "This list is no longer available — send the link again",
+    "button_select_all": "✅ All",
+    "button_clear": "✖️ None",
+    "button_next": "⬇️ Next ({count})",
+    "too_many": "At most {limit} at a time",
+    "capped": "Selected the first {limit}",
+    "nothing_selected": "Nothing ticked yet",
+    "chosen": "📋 <b>{count} selected</b>\n\nWhat should I download, and at what quality?",
+    "queueing": "⏳ <b>Queueing {count}…</b>",
+    "queued": "✅ <b>{count} queued</b>\n\nThey download one after another; each has its own message.",
+    "queued_some": "⚠️ <b>{count} of {total} queued</b>\n\nThe rest could not be sent to the worker.",
+    "item_queued": "⏳ <b>Queued</b> — {index}. {title}"
   },
 
   "progress": {

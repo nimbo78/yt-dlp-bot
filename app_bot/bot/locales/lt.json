@@ -37,7 +37,18 @@
     "header_truncated": "📋 <b>{title}</b>\n\nRodoma {shown} iš {total}. Pasirinkite vieną:",
     "empty": "🤷 <b>Nėra ko pasiūlyti</b>\n\nNuoroda veda į rinkinį, bet iš jo nieko negalima atsisiųsti.",
     "failed": "🛑 <b>Nepavyko perskaityti grojaraščio</b>\n\nSvetainė nepaaiškino kodėl. Pabandykite nuorodą po akimirkos.",
-    "expired": "Šio sąrašo nebėra — atsiųskite nuorodą dar kartą"
+    "expired": "Šio sąrašo nebėra — atsiųskite nuorodą dar kartą",
+    "button_select_all": "✅ Visi",
+    "button_clear": "✖️ Nė vieno",
+    "button_next": "⬇️ Toliau ({count})",
+    "too_many": "Daugiausia {limit} vienu metu",
+    "capped": "Pasirinkti pirmi {limit}",
+    "nothing_selected": "Niekas nepažymėta",
+    "chosen": "📋 <b>Pasirinkta: {count}</b>\n\nKą atsiųsti ir kokia kokybe?",
+    "queueing": "⏳ <b>Statoma į eilę: {count}…</b>",
+    "queued": "✅ <b>Eilėje: {count}</b>\n\nBus atsiųsti vienas po kito, kiekvienas su savo žinute.",
+    "queued_some": "⚠️ <b>Eilėje {count} iš {total}</b>\n\nLikusių nepavyko perduoti.",
+    "item_queued": "⏳ <b>Eilėje</b> — {index}. {title}"
   },
 
   "progress": {

@@ -14,7 +14,7 @@ import logging
 from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
-    from bot.core.playlist_menu import MenuEntry
+    from bot.core.playlist_menu import MenuEntry, StoredPlaylist
     from bot.core.playlist_store import PlaylistStore
 
 TTL: Final[datetime.timedelta] = datetime.timedelta(hours=6)
@@ -32,8 +32,11 @@ class Playlists:
     async def save(self, url_id: str, entries: list['MenuEntry']) -> None:
         await self._store.save(url_id, entries)
 
-    async def get(self, url_id: str) -> list['MenuEntry'] | None:
-        """Fetch the entries behind a menu, or ``None`` if it is not usable."""
+    async def set_selected(self, url_id: str, selected: frozenset[int]) -> None:
+        await self._store.set_selected(url_id, selected)
+
+    async def load(self, url_id: str) -> 'StoredPlaylist | None':
+        """Fetch a menu whole — entries and ticks — or ``None`` if it is stale."""
         try:
             found = await self._store.load(url_id)
         except Exception:
@@ -51,7 +54,12 @@ class Playlists:
             self._log.debug('Playlist %s has gone stale', url_id)
             await self._forget(url_id)
             return None
-        return found.entries
+        return found
+
+    async def get(self, url_id: str) -> list['MenuEntry'] | None:
+        """Fetch just the entries, for callers with no interest in the ticks."""
+        found = await self.load(url_id)
+        return None if found is None else found.entries
 
     async def remove(self, url_id: str) -> None:
         """Drop a menu that has served its purpose, or been abandoned."""

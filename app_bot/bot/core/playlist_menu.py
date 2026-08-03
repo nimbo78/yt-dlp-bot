@@ -23,7 +23,13 @@ from typing import Any, Final
 # here is one not available to the identifier that follows.
 PLAYLIST_PREFIX: Final[str] = 'pl:'
 PLAYLIST_PAGE_PREFIX: Final[str] = 'pp:'
+# Toggling one entry. Named "item" because that is what it was before the
+# checkboxes; pressing it no longer downloads, it ticks.
 PLAYLIST_ITEM_PREFIX: Final[str] = 'pi:'
+# Select or clear the lot. The trailing flag is 1 or 0.
+PLAYLIST_ALL_PREFIX: Final[str] = 'pa:'
+# Done choosing — on to the format and the quality.
+PLAYLIST_NEXT_PREFIX: Final[str] = 'pn:'
 # The page counter is a button because a keyboard row has nothing else to put
 # there. Its data matches no dispatch branch on purpose — the fallback in
 # `on_callback_query` answers it, along with anything an older build drew.
@@ -37,8 +43,17 @@ PAGE_SIZE: Final[int] = 8
 # Angle quotes rather than < and >, which are markup wherever this travels.
 PREVIOUS_LABEL: Final[str] = '\u2039'
 NEXT_LABEL: Final[str] = '\u203a'
-# Beyond this a title is not read, only stepped over.
-LABEL_LIMIT: Final[int] = 32
+# Beyond this a title is not read, only stepped over. Two columns narrower
+# than before, because a tick now sits in front of it.
+LABEL_LIMIT: Final[int] = 30
+
+# One download at a time is bounded by MAX_SIMULTANEOUS_DOWNLOADS, but the
+# queue is not: selecting a whole channel would fill the staging area and take
+# a day, with no way to stop it. A cap keeps a slip of the finger cheap.
+MAX_SELECTED: Final[int] = 25
+
+TICKED: Final[str] = '\u2611'
+UNTICKED: Final[str] = '\u2610'
 
 
 @dataclass(frozen=True)
@@ -61,10 +76,31 @@ class StoredPlaylist:
 
     entries: list[MenuEntry]
     added_at: datetime.datetime
+    # Which of them are ticked. Kept with the menu rather than in the process,
+    # for the same reason the menu is: a restart must not lose it.
+    selected: frozenset[int] = frozenset()
 
 
 def entries_to_rows(entries: list[MenuEntry]) -> list[dict[str, Any]]:
     return [{'index': e.index, 'title': e.title, 'url': e.url} for e in entries]
+
+
+def selection_to_rows(selected: frozenset[int]) -> list[int]:
+    """Store the ticks in a stable order, so a row does not churn on rewrite."""
+    return sorted(selected)
+
+
+def rows_to_selection(rows: Any) -> frozenset[int]:
+    """Read the ticks back, ignoring anything that is not a number."""
+    if not isinstance(rows, list):
+        return frozenset()
+    numbers = set()
+    for row in rows:
+        try:
+            numbers.add(int(row))
+        except (TypeError, ValueError):
+            continue
+    return frozenset(numbers)
 
 
 def rows_to_entries(rows: Any) -> list[MenuEntry]:
@@ -100,6 +136,21 @@ class MenuButton:
 
 
 @dataclass(frozen=True)
+class MenuLabels:
+    """The words on the buttons, already translated.
+
+    Passed in as a bundle so this module needs no opinion about language and
+    the caller needs no opinion about layout.
+    """
+
+    cancel: str
+    select_all: str
+    clear_all: str
+    # Carries a `{count}` placeholder.
+    next_step: str
+
+
+@dataclass(frozen=True)
 class MenuPage:
     """One screenful, ready to be turned into markup."""
 
@@ -108,6 +159,7 @@ class MenuPage:
     rows: list[list[MenuButton]]
     # The entries actually shown, in order, for whoever wants to describe them.
     entries: list[MenuEntry]
+    selected: frozenset[int] = frozenset()
 
 
 def page_count(entry_count: int, page_size: int = PAGE_SIZE) -> int:
@@ -139,25 +191,61 @@ def truncate_label(title: str, limit: int = LABEL_LIMIT) -> str:
     return f'{title[: limit - 1].rstrip()}…'
 
 
-def entry_label(entry: MenuEntry, limit: int = LABEL_LIMIT) -> str:
-    """Write the source number, then as much of the title as fits."""
-    return f'{entry.index}. {truncate_label(entry.title, limit)}'
+def entry_label(
+    entry: MenuEntry, *, selected: bool = False, limit: int = LABEL_LIMIT
+) -> str:
+    """Show whether it is ticked, its source number, and as much title as fits."""
+    box = TICKED if selected else UNTICKED
+    return f'{box} {entry.index}. {truncate_label(entry.title, limit)}'
 
 
-def build_menu(
+def toggle(selected: frozenset[int], index: int) -> frozenset[int]:
+    """Tick or untick one entry, refusing to go past the cap.
+
+    Returning the set unchanged when full is what lets the caller tell the
+    difference and say so, rather than silently dropping the press.
+    """
+    if index in selected:
+        return selected - {index}
+    if len(selected) >= MAX_SELECTED:
+        return selected
+    return selected | {index}
+
+
+def select_all(entries: list[MenuEntry]) -> frozenset[int]:
+    """Tick everything that fits, in source order.
+
+    Truncating rather than refusing: somebody who presses this on a 100-entry
+    playlist wants as much as they can have, and the header says how many.
+    """
+    return frozenset(e.index for e in entries[:MAX_SELECTED])
+
+
+def selected_entries(
+    entries: list[MenuEntry], selected: frozenset[int]
+) -> list[MenuEntry]:
+    """Collect the ticked entries, in the order the playlist has them.
+
+    Order matters: these are queued one after another, and a set has none.
+    """
+    return [e for e in entries if e.index in selected]
+
+
+def build_menu(  # noqa: PLR0913
     entries: list[MenuEntry],
     url_id: str,
     *,
-    cancel_label: str,
-    # Passed in rather than spelled here: the prefix belongs to `keyboards`,
-    # which cannot be imported from this side without a cycle, and a literal
-    # copy of it would survive a rename in silence.
+    labels: 'MenuLabels',
+    # Passed in rather than spelled here: the cancel prefix belongs to
+    # `keyboards`, which cannot be imported from this side without a cycle, and
+    # a literal copy of it would survive a rename in silence.
     cancel_data: str,
     page: int = 0,
+    selected: frozenset[int] = frozenset(),
 ) -> MenuPage:
-    """Lay out one page: an item per row, then navigation, then cancel.
+    """Lay out one page: the entries, navigation, the bulk actions, then done.
 
-    One button per row rather than two: these are titles, and two of them side
+    One entry per row rather than two: these are titles, and two of them side
     by side leaves room for neither.
     """
     total_pages = page_count(len(entries))
@@ -167,7 +255,7 @@ def build_menu(
     rows: list[list[MenuButton]] = [
         [
             MenuButton(
-                label=entry_label(entry),
+                label=entry_label(entry, selected=entry.index in selected),
                 data=f'{PLAYLIST_ITEM_PREFIX}{url_id}:{entry.index}',
             )
         ]
@@ -189,9 +277,35 @@ def build_menu(
             ),
         ])
 
-    rows.append([MenuButton(label=cancel_label, data=cancel_data)])
+    if entries:
+        rows.append([
+            MenuButton(
+                label=labels.select_all,
+                data=f'{PLAYLIST_ALL_PREFIX}{url_id}:1',
+            ),
+            MenuButton(
+                label=labels.clear_all,
+                data=f'{PLAYLIST_ALL_PREFIX}{url_id}:0',
+            ),
+        ])
+
+    if selected:
+        # Only once something is ticked. An always-present "next" that answers
+        # "nothing selected" is a button that lies about being available.
+        rows.append([
+            MenuButton(
+                label=labels.next_step.format(count=len(selected)),
+                data=f'{PLAYLIST_NEXT_PREFIX}{url_id}',
+            )
+        ])
+
+    rows.append([MenuButton(label=labels.cancel, data=cancel_data)])
     return MenuPage(
-        number=page, total_pages=total_pages, rows=rows, entries=list(shown)
+        number=page,
+        total_pages=total_pages,
+        rows=rows,
+        entries=list(shown),
+        selected=selected,
     )
 
 

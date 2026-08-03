@@ -1,7 +1,7 @@
 import datetime
 import logging
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from yt_shared.models import Playlist
@@ -24,6 +24,19 @@ class PlaylistRepository:
             .on_conflict_do_update(index_elements=['url_id'], set_=values)
         )
         await self._db.execute(stmt)
+        await self._db.commit()
+
+    async def set_selected(self, url_id: str, selected: list[int]) -> None:
+        """Replace the ticks, leaving the entries and the age alone.
+
+        The age is deliberately not refreshed: ticking boxes for an hour does
+        not make a six-hour-old reading of the playlist any fresher.
+        """
+        await self._db.execute(
+            update(Playlist)
+            .where(Playlist.url_id == url_id)
+            .values(selected=selected)
+        )
         await self._db.commit()
 
     async def get(self, url_id: str) -> Playlist | None:

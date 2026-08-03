@@ -355,18 +355,37 @@ those locks needs `uv`, which is why it has not happened yet.
 When there is more than one client with different rights. The bearer token
 above covers the actual need for a self-hosted deployment.
 
-### Playlists, downloading several at once
+### Picking several, and downloading them at one quality
 
-Picking one out of a playlist is done (above). Taking a batch is not, and the
-obstacle is not the yt-dlp options — it is the pipeline. A task carries one
-`DownMedia`, the worker's validators want paths that exist, the bot renders
-progress into a single message, and there is no way to stop a run halfway. N
-items means N tasks, progress across them, a bound and a cancel.
+Ticks in the menu, **All**/**None**, then one format and quality for the lot.
 
-The foundation is already in place: enumeration, the request channel and the
-stored entry list all belong to both. What remains is the part that costs —
-and on a host under a gigabyte, "download all 200" is not obviously wanted even
-once it works. Worth a bound the user picks, and worth pricing before starting.
+This was priced as the expensive option and turned out not to be, because of
+one choice: **each selected entry gets a status message of its own.** That makes
+it N ordinary single downloads, so the worker, the task model, the upload path
+and the progress reporter needed no changes at all. The estimate had assumed one
+message counting "3 of 10", which would have meant teaching every one of those
+about batches — that was the cost, not the fan-out.
+
+They are queued, not run: `MAX_SIMULTANEOUS_DOWNLOADS` still decides how many
+proceed at once, so twenty selected is not twenty concurrent downloads on a
+machine that cannot hold two. The cap is 25 per go, because the queue itself is
+unbounded and there is still no way to stop one halfway.
+
+The ticks live in the `playlist` row, so a restart does not lose them. `toggle`
+returns the set unchanged when the cap is reached, which is the only way the
+caller can tell a refusal from a no-op and say so rather than dropping the
+press in silence.
+
+Still missing, and now the obvious next thing: **cancelling**. Twenty queued
+items and no stop button is the remaining sharp edge.
+
+### Playlists, downloading a whole one
+
+Selecting up to 25 by hand is done (above). "Download all 500" is not, and on a
+host under a gigabyte it is not obviously wanted either — the interesting part
+left is not the fan-out but **cancelling**: there is no way to stop a queued run
+today, which is exactly what makes an unbounded one a trap. That wants a control
+message to the worker mid-task, which nothing in the stack has yet.
 
 ---
 

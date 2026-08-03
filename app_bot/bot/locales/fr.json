@@ -37,7 +37,18 @@
     "header_truncated": "📋 <b>{title}</b>\n\n{shown} sur {total} affichés. Choisissez-en un :",
     "empty": "🤷 <b>Rien à proposer ici</b>\n\nLe lien mène à une collection, mais rien n’y est téléchargeable.",
     "failed": "🛑 <b>Impossible de lire la playlist</b>\n\nLe site n’a pas dit pourquoi. Réessayez le lien dans un instant.",
-    "expired": "Cette liste n’est plus disponible — renvoyez le lien"
+    "expired": "Cette liste n’est plus disponible — renvoyez le lien",
+    "button_select_all": "✅ Tout",
+    "button_clear": "✖️ Aucun",
+    "button_next": "⬇️ Suite ({count})",
+    "too_many": "{limit} au maximum à la fois",
+    "capped": "Les {limit} premiers sélectionnés",
+    "nothing_selected": "Rien de coché",
+    "chosen": "📋 <b>{count} sélectionnés</b>\n\nQue télécharger, et en quelle qualité ?",
+    "queueing": "⏳ <b>Mise en file de {count}…</b>",
+    "queued": "✅ <b>{count} en file</b>\n\nIls se téléchargent l’un après l’autre, chacun avec son message.",
+    "queued_some": "⚠️ <b>{count} sur {total} en file</b>\n\nLe reste n’a pas pu être transmis.",
+    "item_queued": "⏳ <b>En file</b> — {index}. {title}"
   },
 
   "progress": {
