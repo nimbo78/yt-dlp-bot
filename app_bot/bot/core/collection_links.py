@@ -17,14 +17,23 @@ format, and on YouTube that is the request that draws the bot check. A URL is
 free and wrong only at the edges, where the cost is a line of text either shown
 or not shown.
 
-Note what is *not* flagged: ``watch?v=…&list=…``, the shape you get from copying
-the address bar while a playlist plays. ``--no-playlist`` treats that as the one
-video, which is what was asked for, so warning about it would put a notice on
-most YouTube links anyone ever sends.
+There are two separate questions here and they have different answers, which is
+why there are two functions.
+
+*Is anything being lost?* — :func:`is_collection_link`. This drives the warning.
+``watch?v=…&list=…`` answers **no**: that is the shape you get from copying the
+address bar while a playlist plays, ``--no-playlist`` treats it as the one video
+you were watching, and nothing is dropped. Warning about it would put a notice
+on most YouTube links anyone ever sends.
+
+*Is there a list worth offering?* — :func:`carries_playlist`. This drives the
+button. The same ``watch?v=…&list=…`` answers **yes**: the playlist is right
+there in the link, and somebody who pasted it may well want to pick from it
+rather than take the one video. Offering costs a button nobody has to press.
 """
 
 from typing import Final
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 _YOUTUBE_HOSTS: Final[frozenset[str]] = frozenset({
     'youtube.com',
@@ -104,12 +113,11 @@ def _is_bandcamp_collection(segments: list[str]) -> bool:
     return not segments or segments[0] in _BANDCAMP_COLLECTION_SEGMENTS
 
 
-def is_collection_link(url: str) -> bool:
-    """Whether this link points at many items, of which one will be downloaded.
+def _parse(url: str) -> tuple[str, list[str], str] | None:
+    """Split a URL into host without `www.`, path segments, and raw query.
 
-    Unrecognised hosts are answered ``False``: silence is the behaviour this
-    fork has always had, and a warning on an ordinary link is worse than no
-    warning on an unusual one.
+    ``None`` when the string does not parse — that is not this module's problem
+    to report, and it will fail later with a message about the real cause.
     """
     try:
         parsed = urlparse(url.strip())
@@ -117,11 +125,46 @@ def is_collection_link(url: str) -> bool:
         # and any credentials, all of which would otherwise defeat the lookups.
         host = (parsed.hostname or '').removeprefix('www.')
     except ValueError:
-        # A string that does not parse is not this function's problem — it will
-        # fail later, with a message about the real cause.
-        return False
+        return None
+    return host, _segments(parsed.path), parsed.query
 
-    segments = _segments(parsed.path)
+
+def carries_playlist(url: str) -> bool:
+    """Whether there is a list here worth offering to pick from.
+
+    Broader than :func:`is_collection_link` by exactly one case: a YouTube video
+    opened from within a playlist, `watch?v=…&list=…`. Nothing is being lost
+    there, so it earns no warning — but the playlist is named in the link, and
+    somebody who pasted it may want the list rather than the one video.
+
+    Auto-generated mixes (`list=RD…`) are included too. They are not playlists
+    anybody made, but the rule that excludes them is one more thing to be wrong
+    about, and an unwanted button is a far smaller cost than a missing one.
+    """
+    if is_collection_link(url):
+        return True
+    parsed = _parse(url)
+    if parsed is None:
+        return False
+    host, _, query = parsed
+    if host not in _YOUTUBE_HOSTS:
+        # Only YouTube names a playlist in the query of a video link. Elsewhere
+        # a list is its own address, which the check above already covers.
+        return False
+    return bool(parse_qs(query).get('list'))
+
+
+def is_collection_link(url: str) -> bool:
+    """Whether this link points at many items, of which one will be downloaded.
+
+    Unrecognised hosts are answered ``False``: silence is the behaviour this
+    fork has always had, and a warning on an ordinary link is worse than no
+    warning on an unusual one.
+    """
+    parsed = _parse(url)
+    if parsed is None:
+        return False
+    host, segments, _ = parsed
 
     if host in _YOUTUBE_HOSTS:
         return _is_youtube_collection(segments)

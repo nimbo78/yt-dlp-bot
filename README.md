@@ -131,8 +131,11 @@ the source rather than the list: item 3 stays 3 even if item 2 was a deleted
 video. When a collection is longer than 100 the header says "showing 100 of
 250", never just "100". A list is kept for six hours, then read again on demand.
 
-`watch?v=…&list=…` is deliberately treated as one video, since that is what
-copying the address bar during a playlist gives you.
+`watch?v=…&list=…` — the shape you get from the address bar while a playlist
+plays — is treated as **one video with a list attached**. No warning, because
+nothing is being lost: `--no-playlist` gives you exactly the video you opened.
+But the button appears anyway, since the playlist is named right there in the
+link and you may want to pick from it instead.
 
 Changes are written to `config.yml` and survive a restart.
 

@@ -276,6 +276,11 @@ the ordinary flow — format, quality, cache, download. Nothing downstream learn
 a playlist was involved, which is why this needed no changes to the worker's
 download path, the task model or the upload path.
 
+Offering and warning turned out to be two questions, not one. `watch?v=…&list=…`
+loses nothing, so it earns no warning — but the playlist is in the link, so it
+gets the button. Collapsing the two into a single predicate was the first cut
+and it hid the list on the most common shape there is.
+
 Two limits decide the shape of the menu, and neither announces itself when
 exceeded. Callback data is capped at 64 bytes, so a press carries an index into
 stored state rather than a URL; the budget is asserted in the tests against the

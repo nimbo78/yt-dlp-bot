@@ -13,7 +13,7 @@ from yt_shared.schemas.media import InbMediaPayload
 from yt_shared.schemas.playlist import PlaylistRequestPayload
 
 from bot.bot.client import VideoBotClient
-from bot.core.collection_links import is_collection_link
+from bot.core.collection_links import carries_playlist, is_collection_link
 from bot.core.i18n import t
 from bot.core.keyboards import (
     CANCEL_PREFIX,
@@ -134,13 +134,14 @@ class TelegramCallback:
         from_user_id = message.from_user.id if message.from_user else None
         processed_url = strip_url_params(url)
 
-        # The worker downloads one item and says nothing about the rest, so a
-        # link to a collection has to say it here — before a format is chosen,
-        # while the person is still looking at the message. The same answer
-        # decides whether to offer the list, so it is taken once.
-        is_collection = is_collection_link(url)
+        # Two different questions. The warning is about loss: only a link that
+        # points *only* at a collection drops anything, so `watch?v=…&list=…`
+        # earns no notice. The button is about offer: that same link names a
+        # playlist, and its owner may want to pick from it.
         warning = (
-            f'\n\n{t("format.playlist_warning", language)}' if is_collection else ''
+            f'\n\n{t("format.playlist_warning", language)}'
+            if is_collection_link(url)
+            else ''
         )
 
         # Send message with format selection keyboard
@@ -151,7 +152,7 @@ class TelegramCallback:
             reply_markup=build_media_type_keyboard(
                 url_id=generate_url_id(message.chat.id, message.id),
                 language=language,
-                offer_playlist=is_collection,
+                offer_playlist=carries_playlist(url),
             ),
         )
 
@@ -371,7 +372,7 @@ class TelegramCallback:
                 reply_markup=build_media_type_keyboard(
                     url_id,
                     language,
-                    offer_playlist=is_collection_link(pending.original_url),
+                    offer_playlist=carries_playlist(pending.original_url),
                 ),
             )
             await callback_query.answer()
