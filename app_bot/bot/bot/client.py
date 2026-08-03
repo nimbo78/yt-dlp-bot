@@ -8,6 +8,8 @@ from pyrogram import Client
 from pyrogram.enums import ParseMode
 from pyrogram.errors import RPCError
 
+from bot.core.batch_store import PostgresBatchStore
+from bot.core.batches import Batches
 from bot.core.file_cache import CachedDelivery
 from bot.core.file_cache_store import PostgresFileCacheStore
 from bot.core.i18n import t
@@ -42,6 +44,7 @@ class VideoBotClient(Client):
             PostgresPendingDownloadStore(self)
         )
         self.playlists = Playlists(PostgresPlaylistStore())
+        self.batches = Batches(PostgresBatchStore())
 
         for user in self.conf.telegram.allowed_users:
             self.allowed_users[user.id] = user

@@ -376,6 +376,25 @@ returns the set unchanged when the cap is reached, which is the only way the
 caller can tell a refusal from a no-op and say so rather than dropping the
 press in silence.
 
+Two things went wrong on the first real run, both from the same cause: every
+task believed it was alone.
+
+- **The source message was deleted after the first item finished**, while three
+  were still queued — taking away the link somebody would need to retry with.
+- **The "4 queued" summary stayed on screen for good.** It is the one message
+  in a batch that no single task points at, so nothing would ever clear it.
+
+So a batch now knows how many downloads are outstanding, keyed by the message
+they came from — the only thing every task in the batch already carries. The one
+that takes the count to zero deletes the source message and the summary; a
+download in no batch is answered "not a batch" and behaves exactly as it always
+did. The failure path counts off too, or one bad link would strand the whole
+batch forever.
+
+The decrement and the read are a single `UPDATE … RETURNING`. Two workers
+finishing in the same instant would otherwise both read the same number and
+neither would see zero. Verified against a real PostgreSQL, not reasoned about.
+
 Still missing, and now the obvious next thing: **cancelling**. Twenty queued
 items and no stop button is the remaining sharp edge.
 

@@ -30,6 +30,12 @@ class ErrorDownloadHandler(AbstractDownloadHandler):
 
     async def handle(self) -> None:
         await self._send_error_text()
+        # A failed item still ends. Without counting it off, a batch with one
+        # bad link never reaches zero, so the source message is never removed
+        # and the summary stays on screen for good.
+        await self._bot.batches.finish_one(
+            self._body.from_chat_id, self._body.message_id
+        )
 
     async def _send_error_text(self) -> None:
         recipients = self._get_receiving_users()

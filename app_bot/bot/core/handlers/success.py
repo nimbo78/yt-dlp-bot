@@ -47,7 +47,45 @@ class SuccessDownloadHandler(AbstractDownloadHandler):
             # so removing it here would race that and leave the user with nothing.
             if not self._reported_error:
                 await self._delete_acknowledgment_message()
-                await self._delete_source_message()
+                await self._finish_and_tidy_up()
+
+    async def _finish_and_tidy_up(self) -> None:
+        """Count this download off its batch, and tidy up if it was the last.
+
+        A single download belongs to no batch and is answered ``None``, which
+        is the behaviour this has always had. Several from one message means
+        the source link must survive until the last of them has arrived —
+        deleting it after the first left three still queued with nothing to
+        retry from.
+        """
+        progress = await self._bot.batches.finish_one(
+            self._body.from_chat_id, self._body.message_id
+        )
+        if progress is not None and not progress.is_last:
+            return
+        if progress is not None:
+            await self._delete_batch_summary(progress.summary_message_id)
+        await self._delete_source_message()
+
+    async def _delete_batch_summary(self, summary_message_id: int | None) -> None:
+        """Remove the "n queued" message, which no single task points at.
+
+        It is the one message in a batch nothing else would ever clear, so
+        without this it stays on screen for good.
+        """
+        if not (summary_message_id and self._body.from_chat_id):
+            return
+        try:
+            await self._bot.delete_messages(
+                chat_id=self._body.from_chat_id, message_ids=summary_message_id
+            )
+        except Exception as err:
+            self._log.warning(
+                'Could not delete the batch summary %s in chat %s: %s',
+                summary_message_id,
+                self._body.from_chat_id,
+                err,
+            )
 
     async def _delete_acknowledgment_message(self) -> None:
         if self._body.from_chat_id and self._body.context.ack_message_id:

@@ -2,8 +2,8 @@
 
 Evicting on access is not enough on its own: an entry nobody looks up again is
 never reached that way, and those are precisely the ones that accumulate. That
-holds for pending format choices and for enumerated playlists alike, so both are
-swept here.
+holds for pending format choices, enumerated playlists and the counts that say
+when a batch of downloads is done — all three are swept here.
 """
 
 import asyncio
@@ -49,3 +49,13 @@ class PendingCleanupTask(AbstractTask):
                 continue
             if stale:
                 self._log.info('Dropped %d stale playlist menu(s)', stale)
+
+            try:
+                abandoned = await self._bot.batches.sweep()
+            except Exception:
+                self._log.exception('Could not sweep the download batches')
+                continue
+            if abandoned:
+                # A batch only lingers when something never reported an ending,
+                # so this line is worth reading rather than routine.
+                self._log.info('Dropped %d abandoned batch(es)', abandoned)

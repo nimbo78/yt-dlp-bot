@@ -557,7 +557,7 @@ class TelegramCallback:
         )
         if chosen:
             await self._start_batch(
-                callback_query, pending, chosen, media_type, quality, language
+                client, callback_query, pending, chosen, media_type, quality, language
             )
             return
 
@@ -630,6 +630,7 @@ class TelegramCallback:
 
     async def _start_batch(  # noqa: PLR0913
         self,
+        client: VideoBotClient,
         callback_query: CallbackQuery,
         pending: PendingDownload,
         chosen: list,
@@ -671,6 +672,17 @@ class TelegramCallback:
             ),
             parse_mode=ParseMode.HTML,
         )
+
+        if queued:
+            # Recorded only now, and only for what actually made it onto the
+            # queue: the count has to match the number of endings that will
+            # arrive, or nobody is ever last and the tidying never happens.
+            await client.batches.start(
+                chat_id=pending.from_chat_id,
+                message_id=pending.message_id,
+                count=queued,
+                summary_message_id=callback_query.message.id,
+            )
 
     async def _queue_one(  # noqa: PLR0913
         self,
