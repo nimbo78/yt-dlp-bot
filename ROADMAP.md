@@ -395,6 +395,27 @@ The decrement and the read are a single `UPDATE … RETURNING`. Two workers
 finishing in the same instant would otherwise both read the same number and
 neither would see zero. Verified against a real PostgreSQL, not reasoned about.
 
+### `/adduser` said it worked, and the new user still could not write
+
+`launcher.py` read `bot.allowed_users` once, when the handlers were registered,
+and passed the list to Pyrogram's `filters.user(...)`, which freezes it.
+`/adduser` writes the config, validates it, saves it and reloads the bot's own
+dictionaries — all of which worked — but every message handler was still
+matching against the list from startup. The new user's messages were dropped,
+and the command reported success. The only way through was `/restartbot`.
+
+The filters now ask the live dictionaries on each update. The admin one stays
+deliberately narrower than the allowed one: it consults the sender's id only,
+never the chat, so being in a group configured as an admin does not make
+everyone in it one. And the admin handlers are registered unconditionally,
+where `if admin_users:` used to mean a config that started with none needed a
+restart before the first could be promoted.
+
+The decision is a set membership in `bot/core/access.py`, kept apart from the
+Pyrogram plumbing so it can be tested — including the case that matters, that a
+later addition is seen because the set is read at call time rather than
+captured.
+
 ### `MAX_SIMULTANEOUS_DOWNLOADS` never limited anything
 
 Found the first time a selection of several ran: they all downloaded at once on

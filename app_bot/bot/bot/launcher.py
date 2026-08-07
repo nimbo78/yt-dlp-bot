@@ -8,6 +8,8 @@ from yt_shared.utils.tasks.tasks import create_task
 from bot.bot.client import VideoBotClient
 from bot.core.callbacks import TelegramCallback
 from bot.core.config.config import get_main_config
+from bot.core.filters import admin as admin_filter
+from bot.core.filters import allowed as allowed_filter
 from bot.core.handlers.admin import AdminCommandHandler
 from bot.core.i18n import report_catalogue_health
 from bot.core.tasks.db_cleanup import DbCleanupTask
@@ -46,80 +48,78 @@ class BotLauncher:
     def _setup_handlers(self) -> None:
         cb = TelegramCallback()
         admin_cb = AdminCommandHandler()
-        allowed_users = list(self._bot.allowed_users.keys())
-        admin_users = list(self._bot.admin_users.keys())
+        # Asked fresh on every update rather than snapshotted here. A list read
+        # once and frozen into `filters.user(...)` is why `/adduser` used to
+        # write the config, report success, and still leave the new user unable
+        # to say anything until the next restart.
+        allowed = allowed_filter(self._bot)
+        admin = admin_filter(self._bot)
 
         self._bot.add_handler(
             MessageHandler(
                 cb.on_start,
-                filters=filters.user(allowed_users)
-                & filters.command(['start', 'help']),
+                filters=allowed & filters.command(['start', 'help']),
             )
         )
 
-        # Admin commands - only registered admins can use these
-        # Note: additional admin check is done inside handlers for security
-        if admin_users:
-            self._bot.add_handler(
-                MessageHandler(
-                    admin_cb.on_adduser,
-                    filters=filters.user(admin_users) & filters.command('adduser'),
-                )
+        # Admin commands. Registered unconditionally now: with no admins
+        # configured the filter simply never matches, where the old `if
+        # admin_users:` meant promoting the first one needed a restart. Each
+        # handler checks again inside, which is worth keeping.
+        self._bot.add_handler(
+            MessageHandler(
+                admin_cb.on_adduser,
+                filters=admin & filters.command('adduser'),
             )
-            self._bot.add_handler(
-                MessageHandler(
-                    admin_cb.on_deleteuser,
-                    filters=filters.user(admin_users) & filters.command('deleteuser'),
-                )
+        )
+        self._bot.add_handler(
+            MessageHandler(
+                admin_cb.on_deleteuser,
+                filters=admin & filters.command('deleteuser'),
             )
-            self._bot.add_handler(
-                MessageHandler(
-                    admin_cb.on_config,
-                    filters=filters.user(admin_users) & filters.command('config'),
-                )
+        )
+        self._bot.add_handler(
+            MessageHandler(
+                admin_cb.on_config,
+                filters=admin & filters.command('config'),
             )
-            self._bot.add_handler(
-                MessageHandler(
-                    admin_cb.on_listusers,
-                    filters=filters.user(admin_users) & filters.command('listusers'),
-                )
+        )
+        self._bot.add_handler(
+            MessageHandler(
+                admin_cb.on_listusers,
+                filters=admin & filters.command('listusers'),
             )
-            self._bot.add_handler(
-                MessageHandler(
-                    admin_cb.on_reloadconfig,
-                    filters=filters.user(admin_users) & filters.command('reloadconfig'),
-                )
+        )
+        self._bot.add_handler(
+            MessageHandler(
+                admin_cb.on_reloadconfig,
+                filters=admin & filters.command('reloadconfig'),
             )
-            self._bot.add_handler(
-                MessageHandler(
-                    admin_cb.on_restartbot,
-                    filters=filters.user(admin_users) & filters.command('restartbot'),
-                )
+        )
+        self._bot.add_handler(
+            MessageHandler(
+                admin_cb.on_restartbot,
+                filters=admin & filters.command('restartbot'),
             )
+        )
 
         self._bot.add_handler(
             MessageHandler(
                 cb.on_nocache,
-                filters=(
-                    filters.command('nocache')
-                    & (filters.user(allowed_users) | filters.chat(allowed_users))
-                ),
+                filters=filters.command('nocache') & allowed,
             )
         )
 
         self._bot.add_handler(
             MessageHandler(
                 cb.on_message,
-                filters=(
-                    filters.regex(self.REGEX_NOT_START_WITH_SLASH)
-                    & (filters.user(allowed_users) | filters.chat(allowed_users))
-                ),
+                filters=filters.regex(self.REGEX_NOT_START_WITH_SLASH) & allowed,
             )
         )
         self._bot.add_handler(
             CallbackQueryHandler(
                 cb.on_callback_query,
-                filters=filters.user(allowed_users) | filters.chat(allowed_users),
+                filters=allowed,
             )
         )
 

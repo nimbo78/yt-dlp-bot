@@ -113,6 +113,16 @@ Anyone allowed in the config can paste links. Admins get the rest:
 | `/reloadconfig` | Re-read `config.yml` from disk |
 | `/restartbot` | Restart the bot; Docker brings it back |
 
+Changes made this way are written straight into `app_bot/config.yml` — the file
+is bind-mounted into the container, so the edit lands on the host copy — and
+take effect on the next message. No restart, and a timestamped backup goes into
+`app_bot/config_backups/` before every write, the last five kept.
+
+`/config set` reaches settings under `telegram.` by dotted path, including ones
+the file has never mentioned and is running on its default. It does not reach
+per-user entries: `allowed_users` is a list, and a list has no path. Change
+those in the file, then `/reloadconfig`.
+
 A format keyboard keeps working across a restart: the pending choice lives in
 the database, not in the bot process, and expires after 48 hours.
 
