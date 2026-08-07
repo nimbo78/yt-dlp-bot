@@ -395,6 +395,33 @@ The decrement and the read are a single `UPDATE … RETURNING`. Two workers
 finishing in the same instant would otherwise both read the same number and
 neither would see zero. Verified against a real PostgreSQL, not reasoned about.
 
+### A `/help` worth reading
+
+`/help` was an alias for `/start` and answered with the one-line greeting, so
+every question about the bot had to be asked of somebody who knew. It now says
+what a link does, what a playlist link does, and which commands exist — with the
+admin half appended only for admins, by their own id and never by the chat,
+matching the filter that guards those commands. Listing something somebody
+cannot use is an invitation to press it and be refused.
+
+Two keys rather than eight fragments, so each language reads as prose someone
+wrote rather than as assembled pieces. That is 30 translations; the fragment
+version would have been 120 and worse.
+
+The command menu next to the message box is filled in at startup too, admins
+getting their own list in their own chat. That call is best-effort by
+construction: it reaches a Pyrogram API this repository cannot exercise —
+Pyrogram will not install where the tests run — so the import and both calls are
+guarded, and a wrong guess costs the menu rather than the start. `/help` carries
+the same information regardless.
+
+What the tests do cover is the part that fails all-or-nothing: a message over
+4096 characters is refused outright, and so is one with an unbalanced tag under
+HTML parse mode, in which case `/help` produces nothing at all rather than
+something slightly wrong. Both are checked in all 15 languages, along with the
+tags being ones Telegram knows and the commands named being the ones actually
+registered.
+
 ### `/adduser` said it worked, and the new user still could not write
 
 `launcher.py` read `bot.allowed_users` once, when the handlers were registered,

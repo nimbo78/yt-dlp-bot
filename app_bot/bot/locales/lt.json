@@ -4,6 +4,22 @@
     "startup": "✨ <b>{name}</b> paruoštas — atsiųskite nuorodą ir atsisiuntimas prasidės."
   },
 
+  "help": {
+    "body": "📖 <b>Ką aš moku</b>\n\nAtsiųskite nuorodą. Paklausiu, ko norite, atsisiųsiu ir grąžinsiu failą.\n\n<b>Paprasta nuoroda</b>\n• Vaizdas, garsas arba abu; kokybė nuo 360p iki 4K.\n• Pakartota nuoroda pateikiama iškart — failą jau laiko Telegram.\n• Skyriai, viršelis ir garso žymos atkeliauja, jei šaltinis jas turi.\n\n<b>Grojaraštis, albumas ar kanalas</b>\n• Klaviatūroje atsiras <b>📋 Rodyti sąrašą</b> — skaitomas tik turinys, nieko neatsiunčiama.\n• Pažymėkite, ko norite, arba <b>Visi</b> / <b>Nė vieno</b>, tada <b>Toliau</b>.\n• Formatas ir kokybė pasirenkami vieną kartą visiems pažymėtiems. Iki 25 vienu metu.\n• Kiekvienas turi savo būsenos žinutę; kiek vykdoma vienu metu, nustatoma serveryje.\n\n<b>Komandos</b>\n/help — ši žinutė\n/nocache &lt;nuoroda&gt; — atsiųsti iš naujo, nepaisant išsaugotos kopijos",
+    "admin": "<b>Administratoriaus komandos</b>\n/adduser &lt;telegram_id&gt; — pridėti naudotoją su numatytaisiais nustatymais\n/deleteuser &lt;telegram_id&gt; — pašalinti; administratorių neatiduoda\n/listusers — kas šiuo metu yra konfigūracijoje\n/config get &lt;kelias&gt; — perskaityti nustatymą, pvz. <code>telegram.lang_code</code>\n/config set &lt;kelias&gt; &lt;reikšmė&gt; — pakeisti\n/reloadconfig — iš naujo perskaityti config.yml iš disko\n/restartbot — perkrauti; Docker pakels atgal\n\nPakeitimai rašomi į <code>config.yml</code> ir galioja nuo kitos žinutės. Prieš kiekvieną rašymą daroma atsarginė kopija. Iki konkretaus naudotojo nustatymų kelias nepasiekia — redaguokite failą, tada /reloadconfig."
+  },
+
+  "command": {
+    "help": "Ką aš moku",
+    "nocache": "Atsiųsti iš naujo, aplenkiant talpyklą",
+    "listusers": "Kas yra konfigūracijoje",
+    "adduser": "Pridėti naudotoją",
+    "deleteuser": "Pašalinti naudotoją",
+    "config": "Perskaityti ar pakeisti nustatymą",
+    "reloadconfig": "Perskaityti konfigūracijos failą",
+    "restartbot": "Perkrauti botą"
+  },
+
   "format": {
     "choose": "🎯 Ką atsisiųsti?",
     "choose_quality": "📊 Kokios kokybės?",

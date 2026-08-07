@@ -4,6 +4,22 @@
     "startup": "✨ <b>{name}</b> está listo — envía un enlace y empezará la descarga."
   },
 
+  "help": {
+    "body": "📖 <b>Qué sé hacer</b>\n\nMándame un enlace. Te pregunto qué quieres, lo descargo y te devuelvo el archivo.\n\n<b>Un enlace suelto</b>\n• Vídeo, audio o ambos; calidad de 360p a 4K.\n• El mismo enlace otra vez llega al instante — Telegram ya tiene el archivo.\n• Capítulos, carátula y etiquetas de audio vienen incluidos cuando la fuente los tiene.\n\n<b>Lista, álbum o canal</b>\n• El teclado ofrece <b>📋 Mostrar la lista</b> — solo se lee la página índice, no se descarga nada.\n• Marca lo que quieras, o <b>Todos</b> / <b>Ninguno</b>, y luego <b>Siguiente</b>.\n• Formato y calidad una sola vez, para todo lo marcado. Como máximo 25 por tanda.\n• Cada uno tiene su mensaje de estado; cuántos van a la vez se configura en el servidor.\n\n<b>Comandos</b>\n/help — este mensaje\n/nocache &lt;enlace&gt; — descargar de nuevo, ignorando la copia guardada",
+    "admin": "<b>Comandos de administrador</b>\n/adduser &lt;telegram_id&gt; — añadir un usuario con los ajustes por defecto\n/deleteuser &lt;telegram_id&gt; — quitar; los administradores están protegidos\n/listusers — quién está configurado ahora\n/config get &lt;ruta&gt; — leer un ajuste, p. ej. <code>telegram.lang_code</code>\n/config set &lt;ruta&gt; &lt;valor&gt; — cambiarlo\n/reloadconfig — releer config.yml desde el disco\n/restartbot — reiniciar; Docker lo levanta de nuevo\n\nLos cambios se escriben en <code>config.yml</code> y valen desde el mensaje siguiente. Antes de cada escritura se guarda una copia. Los ajustes por usuario no se alcanzan por ruta — edita el archivo y luego /reloadconfig."
+  },
+
+  "command": {
+    "help": "Qué sé hacer",
+    "nocache": "Descargar de nuevo, sin la copia",
+    "listusers": "Quién está configurado",
+    "adduser": "Añadir un usuario",
+    "deleteuser": "Quitar un usuario",
+    "config": "Leer o cambiar un ajuste",
+    "reloadconfig": "Releer el archivo de configuración",
+    "restartbot": "Reiniciar el bot"
+  },
+
   "format": {
     "choose": "🎯 ¿Qué descargo?",
     "choose_quality": "📊 ¿En qué calidad?",

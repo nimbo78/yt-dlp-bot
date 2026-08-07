@@ -4,6 +4,22 @@
     "startup": "✨ <b>{name}</b> is up — paste a link to start a download."
   },
 
+  "help": {
+    "body": "📖 <b>What I do</b>\n\nSend me a link. I ask what you want, download it, and send the file back.\n\n<b>A link</b>\n• Video, audio or both; quality from 360p to 4K.\n• A repeat of the same link is answered instantly — Telegram already holds it.\n• Chapters, cover art and audio tags come along when the source has them.\n\n<b>A playlist, album or channel</b>\n• The keyboard offers <b>📋 Show the list</b> — that reads the index page only, nothing is downloaded.\n• Tick what you want, or <b>All</b> / <b>None</b>, then <b>Next</b>.\n• Format and quality once, for everything ticked. Up to 25 at a time.\n• Each gets its own status message; how many run at once is set on the server.\n\n<b>Commands</b>\n/help — this message\n/nocache &lt;link&gt; — download again, ignoring the saved copy",
+    "admin": "<b>Admin commands</b>\n/adduser &lt;telegram_id&gt; — add a user with default settings\n/deleteuser &lt;telegram_id&gt; — remove one; admins are protected\n/listusers — everyone currently configured\n/config get &lt;path&gt; — read a setting, e.g. <code>telegram.lang_code</code>\n/config set &lt;path&gt; &lt;value&gt; — change one\n/reloadconfig — re-read config.yml from disk\n/restartbot — restart; Docker brings it back\n\nChanges are written into <code>config.yml</code> and take effect on the next message. A backup is kept before every write. Per-user settings are not reachable by path — edit the file, then /reloadconfig."
+  },
+
+  "command": {
+    "help": "What I can do",
+    "nocache": "Download again, ignoring the saved copy",
+    "listusers": "Everyone configured",
+    "adduser": "Add a user",
+    "deleteuser": "Remove a user",
+    "config": "Read or change a setting",
+    "reloadconfig": "Re-read the config file",
+    "restartbot": "Restart the bot"
+  },
+
   "format": {
     "choose": "🎯 What should I download?",
     "choose_quality": "📊 Which quality?",

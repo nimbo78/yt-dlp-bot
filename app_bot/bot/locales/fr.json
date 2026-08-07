@@ -4,6 +4,22 @@
     "startup": "✨ <b>{name}</b> est prêt — envoyez un lien et le téléchargement démarrera."
   },
 
+  "help": {
+    "body": "📖 <b>Ce que je sais faire</b>\n\nEnvoyez-moi un lien. Je demande ce que vous voulez, je le télécharge et je renvoie le fichier.\n\n<b>Un lien simple</b>\n• Vidéo, audio ou les deux ; qualité de 360p à 4K.\n• Le même lien une deuxième fois arrive instantanément — Telegram détient déjà le fichier.\n• Chapitres, pochette et tags audio suivent, quand la source les fournit.\n\n<b>Playlist, album ou chaîne</b>\n• Le clavier propose <b>📋 Afficher la liste</b> — seule la page d’index est lue, rien n’est téléchargé.\n• Cochez ce que vous voulez, ou <b>Tout</b> / <b>Aucun</b>, puis <b>Suite</b>.\n• Format et qualité une seule fois, pour tout ce qui est coché. 25 au maximum.\n• Chacun a son propre message d’état ; combien tournent à la fois se règle sur le serveur.\n\n<b>Commandes</b>\n/help — ce message\n/nocache &lt;lien&gt; — retélécharger en ignorant la copie enregistrée",
+    "admin": "<b>Commandes d’administration</b>\n/adduser &lt;telegram_id&gt; — ajouter un utilisateur avec les réglages par défaut\n/deleteuser &lt;telegram_id&gt; — retirer ; les admins sont protégés\n/listusers — qui est configuré actuellement\n/config get &lt;chemin&gt; — lire un réglage, p. ex. <code>telegram.lang_code</code>\n/config set &lt;chemin&gt; &lt;valeur&gt; — le modifier\n/reloadconfig — relire config.yml depuis le disque\n/restartbot — redémarrer ; Docker le relance\n\nLes changements sont écrits dans <code>config.yml</code> et s’appliquent dès le message suivant. Une sauvegarde est faite avant chaque écriture. Les réglages par utilisateur ne sont pas accessibles par chemin — éditez le fichier, puis /reloadconfig."
+  },
+
+  "command": {
+    "help": "Ce que je sais faire",
+    "nocache": "Retélécharger sans la copie enregistrée",
+    "listusers": "Qui est configuré",
+    "adduser": "Ajouter un utilisateur",
+    "deleteuser": "Retirer un utilisateur",
+    "config": "Lire ou modifier un réglage",
+    "reloadconfig": "Relire le fichier de configuration",
+    "restartbot": "Redémarrer le bot"
+  },
+
   "format": {
     "choose": "🎯 Que faut-il télécharger ?",
     "choose_quality": "📊 En quelle qualité ?",

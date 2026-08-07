@@ -103,8 +103,13 @@ unrelated-looking service fails for want of space.
 
 Anyone allowed in the config can paste links. Admins get the rest:
 
+`/help` says all of this from inside Telegram, and the client's command menu is
+filled in at startup — admins get their six extra entries in their own chat, so
+nobody is offered a command that would only refuse them.
+
 | Command | What it does |
 |---|---|
+| `/help` | What the bot does, and the commands you can use |
 | `/adduser <telegram_id>` | Add a user with default settings |
 | `/deleteuser <telegram_id>` | Remove a user — admins are protected |
 | `/listusers` | Show everyone currently configured |

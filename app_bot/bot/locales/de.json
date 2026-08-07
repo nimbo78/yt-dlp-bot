@@ -4,6 +4,22 @@
     "startup": "✨ <b>{name}</b> ist bereit — schicken Sie einen Link, dann geht es los."
   },
 
+  "help": {
+    "body": "📖 <b>Was ich kann</b>\n\nSchick mir einen Link. Ich frage, was du willst, lade es und schicke die Datei zurück.\n\n<b>Ein einzelner Link</b>\n• Video, Audio oder beides; Qualität von 360p bis 4K.\n• Derselbe Link nochmal kommt sofort — Telegram hat die Datei schon.\n• Kapitel, Cover und Audio-Tags kommen mit, wenn die Quelle sie hat.\n\n<b>Playlist, Album oder Kanal</b>\n• Die Tastatur bietet <b>📋 Liste anzeigen</b> — es wird nur die Übersichtsseite gelesen, nichts geladen.\n• Hake an, was du willst, oder <b>Alle</b> / <b>Keine</b>, dann <b>Weiter</b>.\n• Format und Qualität einmal, für alles Angehakte. Höchstens 25 auf einmal.\n• Jeder Eintrag bekommt eine eigene Statusnachricht; wie viele gleichzeitig laufen, steht auf dem Server.\n\n<b>Befehle</b>\n/help — diese Nachricht\n/nocache &lt;Link&gt; — erneut laden, gespeicherte Kopie ignorieren",
+    "admin": "<b>Admin-Befehle</b>\n/adduser &lt;telegram_id&gt; — Nutzer mit Standardeinstellungen anlegen\n/deleteuser &lt;telegram_id&gt; — entfernen; Admins sind geschützt\n/listusers — wer gerade konfiguriert ist\n/config get &lt;Pfad&gt; — Einstellung lesen, z. B. <code>telegram.lang_code</code>\n/config set &lt;Pfad&gt; &lt;Wert&gt; — ändern\n/reloadconfig — config.yml neu von der Platte lesen\n/restartbot — Neustart; Docker holt ihn zurück\n\nÄnderungen landen in <code>config.yml</code> und gelten ab der nächsten Nachricht. Vor jedem Schreiben wird eine Sicherung angelegt. Nutzerspezifische Einstellungen sind über den Pfad nicht erreichbar — Datei bearbeiten, dann /reloadconfig."
+  },
+
+  "command": {
+    "help": "Was ich kann",
+    "nocache": "Erneut laden, Kopie ignorieren",
+    "listusers": "Wer konfiguriert ist",
+    "adduser": "Nutzer hinzufügen",
+    "deleteuser": "Nutzer entfernen",
+    "config": "Einstellung lesen oder ändern",
+    "reloadconfig": "Konfigurationsdatei neu lesen",
+    "restartbot": "Bot neu starten"
+  },
+
   "format": {
     "choose": "🎯 Was soll heruntergeladen werden?",
     "choose_quality": "📊 In welcher Qualität?",

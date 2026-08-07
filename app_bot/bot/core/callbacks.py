@@ -78,6 +78,29 @@ class TelegramCallback:
             reply_to_message_id=message.id,
         )
 
+    @staticmethod
+    async def on_help(client: VideoBotClient, message: Message) -> None:
+        """Say what the bot does and which commands exist.
+
+        The admin half is appended only for admins — by their own id, never by
+        the chat, matching the filter that guards the commands themselves.
+        Listing commands somebody cannot use is an invitation to press them and
+        be refused.
+        """
+        sender_id = message.from_user.id if message.from_user else None
+        language = client.language_for(sender_id, message.chat.id)
+
+        text = t('help.body', language)
+        if sender_id is not None and sender_id in client.admin_users:
+            text = f'{text}\n\n{t("help.admin", language)}'
+
+        await message.reply(
+            text,
+            parse_mode=ParseMode.HTML,
+            reply_to_message_id=message.id,
+            disable_web_page_preview=True,
+        )
+
     async def on_nocache(self, client: VideoBotClient, message: Message) -> None:
         """Handle /nocache <url>: download again, ignoring the stored copy."""
         language = client.language_for(get_user_id(message), message.chat.id)

@@ -6,6 +6,7 @@ from yt_shared.rabbit import get_rabbitmq
 from yt_shared.utils.tasks.tasks import create_task
 
 from bot.bot.client import VideoBotClient
+from bot.core.bot_commands import publish as publish_commands
 from bot.core.callbacks import TelegramCallback
 from bot.core.config.config import get_main_config
 from bot.core.filters import admin as admin_filter
@@ -58,8 +59,12 @@ class BotLauncher:
         self._bot.add_handler(
             MessageHandler(
                 cb.on_start,
-                filters=allowed & filters.command(['start', 'help']),
+                filters=allowed & filters.command('start'),
             )
+        )
+
+        self._bot.add_handler(
+            MessageHandler(cb.on_help, filters=allowed & filters.command('help'))
         )
 
         # Admin commands. Registered unconditionally now: with no admins
@@ -171,6 +176,9 @@ class BotLauncher:
         await self._bot.start()
 
         self._log.info('Starting "%s"', (await self._bot.get_me()).first_name)
+        # Best-effort: the menu is worth having and worth nothing compared with
+        # the bot starting, so `publish` never raises.
+        await publish_commands(self._bot)
         # Clear before announcing: a restart inside the previous message's
         # lifetime would otherwise leave it behind for good.
         await self._bot.startup_notice.clear_previous()

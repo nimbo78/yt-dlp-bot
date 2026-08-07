@@ -4,6 +4,22 @@
     "startup": "✨ <b>{name}</b> ir gatavs — nosūtiet saiti, un lejupielāde sāksies."
   },
 
+  "help": {
+    "body": "📖 <b>Ko es protu</b>\n\nAtsūtiet saiti. Pajautāšu, kas vajadzīgs, lejupielādēšu un atdošu failu.\n\n<b>Parasta saite</b>\n• Video, audio vai abi; kvalitāte no 360p līdz 4K.\n• Atkārtota saite tiek atdota uzreiz — failu jau tur Telegram.\n• Nodaļas, vāka attēls un audio birkas atnāk, ja avotam tādas ir.\n\n<b>Atskaņošanas saraksts, albums vai kanāls</b>\n• Uz tastatūras parādīsies <b>📋 Rādīt sarakstu</b> — tiek lasīts tikai satura rādītājs, nekas netiek lejupielādēts.\n• Atzīmējiet vajadzīgo vai <b>Visi</b> / <b>Neviens</b>, tad <b>Tālāk</b>.\n• Formāts un kvalitāte tiek izvēlēti vienreiz visam atzīmētajam. Līdz 25 vienā piegājienā.\n• Katram ir sava statusa ziņa; cik notiek vienlaikus, nosaka servera iestatījums.\n\n<b>Komandas</b>\n/help — šī ziņa\n/nocache &lt;saite&gt; — lejupielādēt vēlreiz, ignorējot saglabāto kopiju",
+    "admin": "<b>Administratora komandas</b>\n/adduser &lt;telegram_id&gt; — pievienot lietotāju ar noklusējuma iestatījumiem\n/deleteuser &lt;telegram_id&gt; — noņemt; administratorus neatdod\n/listusers — kas pašlaik ir konfigurācijā\n/config get &lt;ceļš&gt; — nolasīt iestatījumu, piem. <code>telegram.lang_code</code>\n/config set &lt;ceļš&gt; &lt;vērtība&gt; — mainīt\n/reloadconfig — no jauna nolasīt config.yml no diska\n/restartbot — pārstartēt; Docker pacels atpakaļ\n\nIzmaiņas tiek rakstītas <code>config.yml</code> un stājas spēkā ar nākamo ziņu. Pirms katras rakstīšanas tiek veidota rezerves kopija. Līdz konkrēta lietotāja iestatījumiem ceļš nesniedzas — rediģējiet failu, tad /reloadconfig."
+  },
+
+  "command": {
+    "help": "Ko es protu",
+    "nocache": "Lejupielādēt vēlreiz, apejot kešatmiņu",
+    "listusers": "Kas ir konfigurācijā",
+    "adduser": "Pievienot lietotāju",
+    "deleteuser": "Noņemt lietotāju",
+    "config": "Nolasīt vai mainīt iestatījumu",
+    "reloadconfig": "Pārlasīt konfigurācijas failu",
+    "restartbot": "Pārstartēt botu"
+  },
+
   "format": {
     "choose": "🎯 Ko lejupielādēt?",
     "choose_quality": "📊 Kādā kvalitātē?",
